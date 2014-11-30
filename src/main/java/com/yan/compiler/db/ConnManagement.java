@@ -17,6 +17,8 @@ public class ConnManagement {
 
 	public static ConnManagement factory() {
 		if (null == obj) {
+			Log.record(Log.DEBUG, ConnManagement.class,
+					"Factory ConnManagement.");
 			obj = new ConnManagement();
 		}
 		return obj;
@@ -48,20 +50,26 @@ public class ConnManagement {
 
 		// this will load the MySQL driver, each DB has its own driver
 		try {
+			Log.record(Log.DEBUG, getClass(),
+					"Load driver com.mysql.jdbc.Driver");
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 		} catch (Exception e) {
 			Log.record(Log.ERR, ConnManagement.class.getSimpleName(), e);
+			System.exit(0);
 		}
 	}
 
 	public Session connect() throws SQLException {
 		if (null == connect || connect.isClosed()) {
 			String str = String.format(connTpl, dbAddr, dbPort, dbName);
+			Log.record(Log.DEBUG, getClass(),
+					"Connect to database with Connection-String: " + str);
 			// setup the connection with the DB.
 			connect = DriverManager.getConnection(str, dbUsername, dbPassword);
 		}
 
 		Session session;
+		Log.record(Log.DEBUG, getClass(), "Lock idle session queue.");
 		synchronized (idGen) {
 			if (idle.size() > 0) {
 				session = idle.removeFirst();
@@ -72,11 +80,13 @@ public class ConnManagement {
 			}
 			busy.put(session.getId(), session);
 		}
+		Log.record(Log.DEBUG, getClass(), "Unlock idle session queue.");
 		return session;
 	}
 
 	void free(String id) {
-		synchronized (busy) {
+		synchronized (idGen) {
+			Log.record(Log.DEBUG, getClass(), "Free Session: " + id);
 			Session session = busy.get(id);
 			if (null != session) {
 				idle.addLast(session);

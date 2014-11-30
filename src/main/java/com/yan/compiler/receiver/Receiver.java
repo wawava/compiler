@@ -22,6 +22,7 @@ public class Receiver {
 
 	public static Receiver factory() {
 		if (null == obj) {
+			Log.record(Log.DEBUG, Receiver.class, "factory Receiver");
 			Config config = Config.factory();
 			obj = new Receiver(config.getAddr(), config.getPort());
 		}
@@ -62,6 +63,8 @@ public class Receiver {
 	private Receiver(String addr, int port) {
 		this.addr = addr;
 		this.port = port;
+		Log.record(Log.DEBUG, getClass(),
+				String.format("addr: %s, port: %s", addr, port));
 		pool = Executors.newCachedThreadPool();
 	}
 
@@ -69,9 +72,11 @@ public class Receiver {
 	 * Start this receiver.
 	 */
 	public void start() {
+		Log.record(Log.DEBUG, getClass(), "Start Listener.");
 		listener = new ListenerTask(addr, port);
 		pool.execute(listener);
 
+		Log.record(Log.DEBUG, getClass(), "Start Deliver.");
 		deliver = new DeliverTask();
 		pool.execute(deliver);
 	}
@@ -121,6 +126,8 @@ public class Receiver {
 		 */
 		public ListenerTask(String addr, int port) {
 			try {
+				Log.record(Log.DEBUG, getClass(), String.format(
+						"Open socket with addr: %s, port: %s.", addr, port));
 				socket = new DatagramSocket(port, InetAddress.getByName(addr));
 			} catch (Exception e) {
 				Log.record(Log.ERR, ListenerTask.class.getName(), e);
@@ -134,6 +141,7 @@ public class Receiver {
 		private boolean running = true;
 
 		public void run() {
+			Log.record(Log.DEBUG, getClass(), "Run ListenerTask");
 			MsgQueue queue = MsgQueue.factory();
 			while (running) {
 				byte[] buf = new byte[PACKAGE_LENGTH];
@@ -142,6 +150,7 @@ public class Receiver {
 					socket.receive(dp);
 					buf = dp.getData();
 					String msg = new String(buf, 0, dp.getLength());
+					Log.record(Log.DEBUG, getClass(), "Receive msg: " + msg);
 					queue.addMsg(msg);
 				} catch (IOException e) {
 					Log.record(Log.ERR, ListenerTask.class.getName(), e);
@@ -179,13 +188,17 @@ public class Receiver {
 		}
 
 		public void run() {
+			Log.record(Log.DEBUG, getClass(), "Run DeliverTask");
 			MsgQueue queue = MsgQueue.factory();
 
 			while (running) {
+				Log.record(Log.DEBUG, getClass(), "Get massage from MsgQueue");
 				String msg = queue.getMsg();
 				if (null != msg) {
 					try {
 						BasePackage bp = gson.fromJson(msg, BasePackage.class);
+						Log.record(Log.DEBUG, getClass(), "Decrypt from Json: "
+								+ bp.toString());
 						queue.addPackage(bp);
 					} catch (Exception e) {
 						Log.record(Log.ERR, DeliverTask.class.getName(), e);

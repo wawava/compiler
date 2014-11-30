@@ -55,6 +55,11 @@ public class CompilerTask {
 		File file = new File(dir);
 		List<String> list = new LinkedList<String>();
 		_scanDir(file, list);
+		Log.record(
+				Log.DEBUG,
+				getClass(),
+				String.format("Scan dir: [%s], result: %s", dir,
+						list.toString()));
 		return list;
 	}
 
@@ -92,6 +97,8 @@ public class CompilerTask {
 
 	private List<String> _copy(String sourceDir, String targetDir)
 			throws IOException {
+		Log.record(Log.DEBUG, getClass(), String.format(
+				"Copy file from [%s] to [%s]", sourceDir, targetDir));
 		Path sourceRoot = Paths.get(sourceDir);
 		Path targetRoot = Paths.get(targetDir);
 
@@ -125,6 +132,7 @@ public class CompilerTask {
 				val = entry.getValue();
 			}
 			String _env = String.format("%s=%s", key, val);
+			Log.record(Log.DEBUG, getClass(), "Get env: " + _env);
 			envList.add(_env);
 		}
 		String[] envp = envList.toArray(new String[0]);
@@ -134,6 +142,7 @@ public class CompilerTask {
 		BufferedReader br = new BufferedReader(new InputStreamReader(
 				process.getInputStream()));
 		LinkedList<String> output = new LinkedList<String>();
+
 		String str;
 		while (null != (str = br.readLine())) {
 			output.addLast(str);
@@ -152,7 +161,7 @@ public class CompilerTask {
 					error.addLast(_str);
 				}
 			}
-			Log.record(Log.INFO, CompilerTask.class.getSimpleName(), _str);
+			Log.record(Log.INFO, getClass(), _str);
 		}
 
 		StringBuilder outputBuilder = new StringBuilder();

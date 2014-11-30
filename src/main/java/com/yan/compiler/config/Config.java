@@ -63,6 +63,7 @@ public class Config {
 	public static Config factory() {
 		if (null == Config.obj) {
 			try {
+				Log.record(Log.DEBUG, Config.class, "factory Config");
 				Config.obj = new Config();
 			} catch (Exception e) {
 				Log.record(Log.ERR, Config.class.getName(), e);
@@ -123,6 +124,8 @@ public class Config {
 
 	private Config() throws IOException, IllegalArgumentException,
 			IllegalAccessException, NoSuchAlgorithmException {
+		Log.record(Log.DEBUG, Config.class, "Read config from file: "
+				+ CFG_FILE_PATH);
 		File file = new File(CFG_FILE_PATH);
 		Properties prop = new Properties();
 		InputStream in = new BufferedInputStream(new FileInputStream(file));
@@ -134,6 +137,8 @@ public class Config {
 			Entry<Object, Object> entry = it.next();
 			String name = (String) entry.getKey();
 			Object val = entry.getValue();
+			Log.record(Log.DEBUG, Config.class,
+					String.format("Read config: [%s = %s]", name, val.toString()));
 			assign(clazz, name, val);
 		}
 

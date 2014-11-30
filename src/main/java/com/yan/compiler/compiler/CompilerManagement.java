@@ -54,7 +54,7 @@ public class CompilerManagement {
 
 		Task task = new Task(project);
 		threads.put(project, task);
-		Log.record(Log.INFO, "Create Worker Thread", project);
+		Log.record(Log.INFO, getClass(), "Create Worker Thread: " + project);
 		pool.execute(task);
 		return true;
 	}
@@ -101,6 +101,7 @@ public class CompilerManagement {
 		}
 
 		public void run() {
+			Log.record(Log.DEBUG, getClass(), "Run Compiler-Task: " + project);
 			while (running) {
 				try {
 					session = ConnManagement.factory().connect();

@@ -17,11 +17,12 @@ public class BasePackage {
 	private int uid;
 
 	private int reversion;
-	
+
 	private int thisProcess;
-	
+
 	private int process;
-	
+
+	private String str;
 
 	/**
 	 * @return the project
@@ -36,6 +37,7 @@ public class BasePackage {
 	 */
 	public void setProject(String project) {
 		this.project = project;
+		str = null;
 	}
 
 	/**
@@ -51,6 +53,7 @@ public class BasePackage {
 	 */
 	public void setEnv(String env) {
 		this.env = env;
+		str = null;
 	}
 
 	/**
@@ -66,23 +69,27 @@ public class BasePackage {
 	 */
 	public void setName(String name) {
 		this.name = name;
+		str = null;
 	}
 
 	public String toString() {
-		StringBuilder sbd = new StringBuilder(1024);
-		Class<? extends BasePackage> clazz = getClass();
-		Field[] fields = clazz.getDeclaredFields();
-		for (Field field : fields) {
-			sbd.append(field.getName());
-			sbd.append(": ");
-			try {
-				sbd.append(field.get(this));
-			} catch (Exception e) {
-				Log.record(Log.ERR, BasePackage.class.getName(), e);
+		if (null == str) {
+			StringBuilder sbd = new StringBuilder(1024);
+			Class<? extends BasePackage> clazz = getClass();
+			Field[] fields = clazz.getDeclaredFields();
+			for (Field field : fields) {
+				sbd.append(field.getName());
+				sbd.append(": ");
+				try {
+					sbd.append(field.get(this));
+				} catch (Exception e) {
+					Log.record(Log.ERR, BasePackage.class.getName(), e);
+				}
+				sbd.append("; ");
 			}
-			sbd.append("; ");
+			str = sbd.toString();
 		}
-		return sbd.toString();
+		return str;
 	}
 
 	/**
@@ -98,6 +105,7 @@ public class BasePackage {
 	 */
 	public void setId(int id) {
 		this.id = id;
+		str = null;
 	}
 
 	/**
@@ -113,6 +121,7 @@ public class BasePackage {
 	 */
 	public void setUid(int uid) {
 		this.uid = uid;
+		str = null;
 	}
 
 	/**
@@ -128,6 +137,7 @@ public class BasePackage {
 	 */
 	public void setReversion(int reversion) {
 		this.reversion = reversion;
+		str = null;
 	}
 
 	/**
@@ -138,10 +148,12 @@ public class BasePackage {
 	}
 
 	/**
-	 * @param thisProcess the thisProcess to set
+	 * @param thisProcess
+	 *            the thisProcess to set
 	 */
 	public void setThisProcess(int thisProcess) {
 		this.thisProcess = thisProcess;
+		str = null;
 	}
 
 	/**
@@ -152,11 +164,12 @@ public class BasePackage {
 	}
 
 	/**
-	 * @param process the process to set
+	 * @param process
+	 *            the process to set
 	 */
 	public void setProcess(int process) {
 		this.process = process;
+		str = null;
 	}
-	
-	
+
 }

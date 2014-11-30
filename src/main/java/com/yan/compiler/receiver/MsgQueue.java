@@ -41,7 +41,7 @@ public class MsgQueue {
 		synchronized (queue) {
 			queue.addLast(msg);
 			queue.notifyAll();
-			Log.record(Log.INFO, "Receive", msg);
+			Log.record(Log.INFO, getClass(), "addMsg: " + msg);
 		}
 	}
 
@@ -63,7 +63,7 @@ public class MsgQueue {
 				}
 			}
 			msg = queue.removeFirst();
-			Log.record(Log.INFO, "Get Massage", msg);
+			Log.record(Log.INFO, getClass(), "Get Massage: " + msg);
 		}
 		return msg;
 	}
@@ -76,22 +76,28 @@ public class MsgQueue {
 	 */
 	public void addPackage(BasePackage bp) {
 		String project = bp.getProject();
-
+		Log.record(Log.DEBUG, getClass(), "Lock workQueue");
 		synchronized (workQueue) {
 			if (!workQueue.containsKey(project)) {
 				LinkedList<BasePackage> list = new LinkedList<BasePackage>();
-				Log.record(Log.INFO, "Create BasePackage List", project);
+				Log.record(Log.INFO, getClass(), "Create BasePackage List: "
+						+ project);
 				workQueue.put(project, list);
 				CompilerManagement manage = CompilerManagement.factory();
 				manage.createWorker(project);
 			}
 		}
+		Log.record(Log.DEBUG, getClass(), "Unlock workQueue");
 		LinkedList<BasePackage> list = workQueue.get(project);
+		Log.record(Log.DEBUG, getClass(), "Lock workQueue.list: " + project);
 		synchronized (list) {
 			list.addLast(bp);
 			list.notifyAll();
-			Log.record(Log.INFO, "Add Package", bp.toString());
+			Log.record(Log.INFO, getClass(), String.format(
+					"Add Package to workQueue.list: [%s] - [%s]", project,
+					bp.toString()));
 		}
+		Log.record(Log.DEBUG, getClass(), "Unlock workQueue.list: " + project);
 	}
 
 	/**
@@ -119,7 +125,8 @@ public class MsgQueue {
 
 				}
 				bp = list.removeFirst();
-				Log.record(Log.INFO, "Get BasePackage", bp.toString());
+				Log.record(Log.INFO, getClass(),
+						"Get BasePackage: " + bp.toString());
 			}
 		}
 		return bp;

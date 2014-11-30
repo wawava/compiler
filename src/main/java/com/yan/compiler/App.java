@@ -12,6 +12,7 @@ import com.yan.compiler.receiver.Receiver;
 public class App {
 	public static void main(String[] args) throws SQLException,
 			NoSuchAlgorithmException, IOException {
+		Log.init();
 		Receiver r = Receiver.factory();
 		r.start();
 	}

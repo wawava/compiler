@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
+import com.yan.compiler.Log;
+
 public class Session {
 
 	private String id;
@@ -15,6 +17,8 @@ public class Session {
 	public Session(String id, Statement statement) {
 		this.id = id;
 		this.statement = statement;
+
+		Log.record(Log.DEBUG, getClass(), "Create Session with id: " + id);
 	}
 
 	/**
@@ -49,6 +53,8 @@ public class Session {
 	public boolean query(String sql) throws SQLException {
 		count = 0;
 		result = null;
+		Log.record(Log.DEBUG, getClass(),
+				String.format("Session id: [%s], SQL:[%s]", id, sql));
 		if (statement.execute(sql, Statement.RETURN_GENERATED_KEYS)) {
 			ResultSet resultSet = statement.getResultSet();
 			LinkedList<Map<String, Object>> list = new LinkedList<Map<String, Object>>();
