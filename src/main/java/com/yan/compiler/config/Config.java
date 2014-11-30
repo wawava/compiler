@@ -80,6 +80,7 @@ public class Config {
 	private HashMap<String, String> projects;
 	private String compileDir;
 	private String cacheDir;
+	private String backupDir;
 
 	@SuppressWarnings("unchecked")
 	private void assign(Class<? extends Config> clazz, String name, Object val) {
@@ -145,15 +146,27 @@ public class Config {
 		return path.toAbsolutePath().normalize().toString();
 	}
 
+	public String getBackupDir(String name, String env) {
+		StringBuilder sbd = md5(name);
+		Path path = Paths.get(backupDir, env, sbd.substring(0, 2),
+				sbd.substring(2));
+		return path.toAbsolutePath().normalize().toString();
+	}
+
 	public String getCacheDir(String name) {
+		StringBuilder sbd = md5(name);
+		Path path = Paths.get(cacheDir, sbd.substring(0, 2), sbd.substring(2));
+		return path.toAbsolutePath().normalize().toString();
+	}
+
+	private StringBuilder md5(String name) {
 		md.update(name.getBytes());
 		byte[] digest = md.digest();
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		for (byte b : digest) {
 			sb.append(String.format("%02x", b & 0xff));
 		}
-		Path path = Paths.get(cacheDir, sb.substring(0, 2), sb.substring(2));
-		return path.toAbsolutePath().normalize().toString();
+		return sb;
 	}
 
 	/**

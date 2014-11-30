@@ -17,6 +17,11 @@ public class BasePackage {
 	private int uid;
 
 	private int reversion;
+	
+	private int thisProcess;
+	
+	private int process;
+	
 
 	/**
 	 * @return the project
@@ -124,4 +129,34 @@ public class BasePackage {
 	public void setReversion(int reversion) {
 		this.reversion = reversion;
 	}
+
+	/**
+	 * @return the thisProcess
+	 */
+	public int getThisProcess() {
+		return thisProcess;
+	}
+
+	/**
+	 * @param thisProcess the thisProcess to set
+	 */
+	public void setThisProcess(int thisProcess) {
+		this.thisProcess = thisProcess;
+	}
+
+	/**
+	 * @return the process
+	 */
+	public int getProcess() {
+		return process;
+	}
+
+	/**
+	 * @param process the process to set
+	 */
+	public void setProcess(int process) {
+		this.process = process;
+	}
+	
+	
 }

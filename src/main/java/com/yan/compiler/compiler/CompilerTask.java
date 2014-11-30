@@ -26,12 +26,12 @@ public class CompilerTask {
 	private String env;
 	private String name;
 	private int id;
-	private int uid;
-	private int reversion;
 
 	private String compileDir;
 	private String sourceDir;
 	private String backupDir;
+
+	private List<String> relativeFiles;
 
 	private String log;
 	private String[] cmd;
@@ -45,7 +45,7 @@ public class CompilerTask {
 
 		compileDir = config.getCompileDir(project, env);
 		sourceDir = config.getCacheDir(name);
-		backupDir = 
+		backupDir = config.getBackupDir(name, env);
 
 		String cmd = config.get("compileCmd");
 		this.cmd = cmd.split("\\|\\|");
@@ -83,8 +83,17 @@ public class CompilerTask {
 	}
 
 	public void deployFile() throws IOException {
+		relativeFiles = _copy(sourceDir, compileDir);
+	}
+
+	public void restoreFile() throws IOException {
+		_copy(backupDir, compileDir);
+	}
+
+	private List<String> _copy(String sourceDir, String targetDir)
+			throws IOException {
 		Path sourceRoot = Paths.get(sourceDir);
-		Path targetRoot = Paths.get(compileDir);
+		Path targetRoot = Paths.get(targetDir);
 
 		List<String> files = scanDir(sourceDir);
 		Iterator<String> it = files.iterator();
@@ -100,6 +109,7 @@ public class CompilerTask {
 			}
 			Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
 		}
+		return files;
 	}
 
 	public boolean compile() throws IOException {
@@ -169,5 +179,12 @@ public class CompilerTask {
 	 */
 	public int getId() {
 		return id;
+	}
+
+	/**
+	 * @return the relativeFiles
+	 */
+	public List<String> getRelativeFiles() {
+		return relativeFiles;
 	}
 }
