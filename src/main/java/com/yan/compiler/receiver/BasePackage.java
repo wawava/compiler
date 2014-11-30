@@ -14,6 +14,10 @@ public class BasePackage {
 
 	private String name;
 
+	private int uid;
+
+	private int reversion;
+
 	/**
 	 * @return the project
 	 */
@@ -89,5 +93,35 @@ public class BasePackage {
 	 */
 	public void setId(int id) {
 		this.id = id;
+	}
+
+	/**
+	 * @return the uid
+	 */
+	public int getUid() {
+		return uid;
+	}
+
+	/**
+	 * @param uid
+	 *            the uid to set
+	 */
+	public void setUid(int uid) {
+		this.uid = uid;
+	}
+
+	/**
+	 * @return the reversion
+	 */
+	public int getReversion() {
+		return reversion;
+	}
+
+	/**
+	 * @param reversion
+	 *            the reversion to set
+	 */
+	public void setReversion(int reversion) {
+		this.reversion = reversion;
 	}
 }

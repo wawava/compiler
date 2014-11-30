@@ -26,9 +26,12 @@ public class CompilerTask {
 	private String env;
 	private String name;
 	private int id;
+	private int uid;
+	private int reversion;
 
 	private String compileDir;
 	private String sourceDir;
+	private String backupDir;
 
 	private String log;
 	private String[] cmd;
@@ -42,6 +45,7 @@ public class CompilerTask {
 
 		compileDir = config.getCompileDir(project, env);
 		sourceDir = config.getCacheDir(name);
+		backupDir = 
 
 		String cmd = config.get("compileCmd");
 		this.cmd = cmd.split("\\|\\|");
