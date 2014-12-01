@@ -7,11 +7,13 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
 import com.yan.compiler.Log;
 import com.yan.compiler.config.Config;
 
 public class ConnManagement {
-	private static String connTpl = "jdbc:mysql://%s:%s/%s";
+	private static String connTpl = "jdbc:mysql://%s:%s/%s?useUnicode=true&characterEncoding=UTF-8";
 
 	private static ConnManagement obj;
 
@@ -47,6 +49,50 @@ public class ConnManagement {
 
 		idle = new LinkedList<Session>();
 		busy = new HashMap<String, Session>();
+
+		Boolean sshTunnel = config.usingSSHTunnel();
+		if (sshTunnel) {
+			String sshHost = config.get("sshHost");
+			Integer sshPort = Integer.valueOf(config.get("sshPort"));
+			String sshUsername = config.get("sshUsername");
+			String sshPassword = config.get("sshPassword");
+			String sshLocalPort = config.get("sshLocalPort");
+
+			JSch jsch = new JSch();
+			// Create SSH session. Port 22 is your SSH port which
+			// is open in your firewall setup.
+			com.jcraft.jsch.Session session;
+			try {
+				session = jsch.getSession(sshUsername, sshHost, sshPort);
+				session.setPassword(sshPassword);
+
+				// Additional SSH options. See your ssh_config manual for
+				// more options. Set options according to your requirements.
+				java.util.Properties sshConfig = new java.util.Properties();
+				sshConfig.put("StrictHostKeyChecking", "no");
+				sshConfig.put("Compression", "yes");
+				sshConfig.put("ConnectionAttempts", "2");
+
+				session.setConfig(sshConfig);
+				// Connect
+				session.connect();
+
+				// Create the tunnel through port forwarding.
+				// This is basically instructing jsch session to send
+				// data received from local_port in the local machine to
+				// remote_port of the remote_host
+				// assigned_port is the port assigned by jsch for use,
+				// it may not always be the same as
+				// local_port.
+				// port:host:hostport
+				dbPort = session.setPortForwardingL(String.format("%s:%s:%s",
+						sshLocalPort, sshHost, sshPort));
+				dbAddr = "localhost";
+			} catch (JSchException e) {
+				Log.record(Log.ERR, getClass(), e.getMessage());
+				System.exit(0);
+			}
+		}
 
 		// this will load the MySQL driver, each DB has its own driver
 		try {

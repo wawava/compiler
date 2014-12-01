@@ -82,6 +82,7 @@ public class Config {
 	private String compileDir;
 	private String cacheDir;
 	private String backupDir;
+	private Boolean sshTunnel = false;
 
 	@SuppressWarnings("unchecked")
 	private void assign(Class<? extends Config> clazz, String name, Object val) {
@@ -137,8 +138,11 @@ public class Config {
 			Entry<Object, Object> entry = it.next();
 			String name = (String) entry.getKey();
 			Object val = entry.getValue();
-			Log.record(Log.DEBUG, Config.class,
-					String.format("Read config: [%s = %s]", name, val.toString()));
+			Log.record(
+					Log.DEBUG,
+					Config.class,
+					String.format("Read config: [%s = %s]", name,
+							val.toString()));
 			assign(clazz, name, val);
 		}
 
@@ -221,5 +225,14 @@ public class Config {
 
 	public String get(String key) {
 		return cfg.get(key);
+	}
+
+	/**
+	 * return whether using ssh tunnel.
+	 * 
+	 * @return
+	 */
+	public Boolean usingSSHTunnel() {
+		return sshTunnel;
 	}
 }

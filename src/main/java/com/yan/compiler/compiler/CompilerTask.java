@@ -22,6 +22,16 @@ import com.yan.compiler.receiver.BasePackage;
 
 public class CompilerTask {
 
+	// 流程状态
+	public static final Integer STATUS_NO_EXECUTE = 0;
+	public static final Integer STATUS_PRE_COMPILING = 3;
+	public static final Integer STATUS_ALREADY_EXECUTE = 1;
+	public static final Integer STATUS_ALREADY_ROLLBACK = 2;
+	public static final Integer STATUS_COMPILER_RECEIVED = 4;
+	public static final Integer STATUS_COMPILING = 5;
+	
+	public static final Integer OFFICIAL_ALREADY_OFFICIAL = 1;
+
 	private String project;
 	private String env;
 	private String name;

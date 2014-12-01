@@ -103,15 +103,17 @@ public class CompilerManagement {
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run Compiler-Task: " + project);
 			while (running) {
+				BasePackage bp = queue.getPackage(project);
+
 				try {
 					session = ConnManagement.factory().connect();
+					updateStatus(bp.getId(), CompilerTask.STATUS_COMPILING);
 				} catch (SQLException e1) {
 					Log.record(Log.ERR, Task.class.getName(), e1);
 					continue;
 				}
 
 				Date begin = new Date();
-				BasePackage bp = queue.getPackage(project);
 				CompilerTask task = new CompilerTask(bp);
 				try {
 					task.deployFile();
@@ -124,8 +126,9 @@ public class CompilerManagement {
 					continue;
 				}
 
+				boolean hasErr = false;
 				try {
-					task.compile();
+					hasErr = task.compile();
 				} catch (IOException e1) {
 					Log.record(Log.ERR, Task.class.getName(), e1);
 					HashMap<String, Object> map = new HashMap<String, Object>();
@@ -155,6 +158,21 @@ public class CompilerManagement {
 						bp.getReversion(), bp.getId(), map, map.getClass());
 
 				try {
+					if (!hasErr) {
+						updateStatus(bp.getId(),
+								CompilerTask.STATUS_ALREADY_EXECUTE,
+								CompilerTask.OFFICIAL_ALREADY_OFFICIAL);
+						// TODO upload file and restart tomcat.
+
+					} else {
+						updateStatus(bp.getId(),
+								CompilerTask.STATUS_ALREADY_EXECUTE);
+						try {
+							task.restoreFile();
+						} catch (IOException e) {
+							Log.record(Log.ERR, Task.class.getName(), e);
+						}
+					}
 					session.close();
 				} catch (SQLException e) {
 					Log.record(Log.ERR, Task.class.getName(), e);
@@ -174,15 +192,16 @@ public class CompilerManagement {
 			running = false;
 		}
 
+		private String insertLogSqlTpl = "insert into %s.svn_push_log (tid, uid, time, type, reversion, info) values(%s, %s, %s, %s, %s, '%s')";
+
 		private void log(int type, int uid, int revision, int tid, Object info,
 				Type typeOfSrc) {
 			String jsonStr = gson.toJson(info, typeOfSrc);
 			String dbName = Config.factory().get("dbName");
-			String sqlTpl = "insert into %s.svn_push_log (tid, uid, time, type, reversion, info) values(%s, %s, %s, %s, %s, '%s')";
 			long time = (new Date()).getTime();
 			time = time / 1000;
-			String sql = String.format(sqlTpl, dbName, tid, uid, time, type,
-					revision, jsonStr);
+			String sql = String.format(insertLogSqlTpl, dbName, tid, uid, time,
+					type, revision, jsonStr);
 			try {
 				session.query(sql);
 			} catch (SQLException e) {
@@ -220,5 +239,27 @@ public class CompilerManagement {
 			return map;
 		}
 
+		private void updateStatus(Integer id, Integer status)
+				throws SQLException {
+			String sql = String.format(
+					"update %s.svn_push set status=%s where tid=%s", Config
+							.factory().get("dbName"), status, id);
+			if (!session.query(sql)) {
+				throw new SQLException(String.format(
+						"Can not update push record status using tid=%s", id));
+			}
+		}
+
+		private void updateStatus(Integer id, Integer status, Integer official)
+				throws SQLException {
+			String sql = String
+					.format("update %s.svn_push set status=%s, official=%s where tid=%s",
+							Config.factory().get("dbName"), status, official,
+							id);
+			if (!session.query(sql)) {
+				throw new SQLException(String.format(
+						"Can not update push record status using tid=%s", id));
+			}
+		}
 	}
 }

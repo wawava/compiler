@@ -4,13 +4,19 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.sql.SQLException;
+import java.util.LinkedList;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.google.gson.Gson;
 import com.yan.compiler.Log;
+import com.yan.compiler.compiler.CompilerTask;
 import com.yan.compiler.config.Config;
+import com.yan.compiler.db.ConnManagement;
+import com.yan.compiler.db.Session;
 
 public class Receiver {
 	/**
@@ -175,6 +181,16 @@ public class Receiver {
 	 * 
 	 */
 	private class DeliverTask implements Runnable {
+		private Session session;
+
+		public DeliverTask() {
+			try {
+				session = ConnManagement.factory().connect();
+			} catch (SQLException e) {
+				Log.record(Log.ERR, getClass(), e.getMessage());
+			}
+		}
+
 		/**
 		 * true while thread running, false else.
 		 */
@@ -191,6 +207,10 @@ public class Receiver {
 			Log.record(Log.DEBUG, getClass(), "Run DeliverTask");
 			MsgQueue queue = MsgQueue.factory();
 
+			String selectSqlTpl = "select * from %s.svn_push where tid=%s";
+			String updateSqlTpl = "update %s.svn_push set status=%s where tid=%s";
+			String dbName = Config.factory().get("dbName");
+
 			while (running) {
 				Log.record(Log.DEBUG, getClass(), "Get massage from MsgQueue");
 				String msg = queue.getMsg();
@@ -199,6 +219,34 @@ public class Receiver {
 						BasePackage bp = gson.fromJson(msg, BasePackage.class);
 						Log.record(Log.DEBUG, getClass(), "Decrypt from Json: "
 								+ bp.toString());
+						String sql = String.format(selectSqlTpl, dbName,
+								bp.getId());
+						if (!session.query(sql)) {
+							throw new Exception(
+									String.format(
+											"Can not find push record from svn_push using tid=%s",
+											bp.getId()));
+						}
+						LinkedList<Map<String, Object>> result = session
+								.getResult();
+						Map<String, Object> map = result.getFirst();
+						Integer status = Integer.valueOf(String.valueOf(map
+								.get("status")));
+						if (!CompilerTask.STATUS_PRE_COMPILING.equals(status)) {
+							Log.record(Log.INFO, getClass(), String.format(
+									"Push status [%s] is not pre_compiling",
+									status));
+							continue;
+						}
+						sql = String.format(updateSqlTpl, dbName,
+								CompilerTask.STATUS_COMPILER_RECEIVED,
+								bp.getId());
+						if (!session.query(sql)) {
+							throw new Exception(
+									String.format(
+											"Can not update push record status to received using tid=%s",
+											bp.getId()));
+						}
 						queue.addPackage(bp);
 					} catch (Exception e) {
 						Log.record(Log.ERR, DeliverTask.class.getName(), e);
