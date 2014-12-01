@@ -23,8 +23,9 @@ import com.yan.compiler.receiver.MsgQueue;
 
 public class CompilerManagement {
 	public static final int LOG_TYPE_COPY_FILE_ERROR = 17;
-	public static final int LOG_TYPE_COMPILE_PROJECT_ERROR = 18;
-	public static final int LOG_TYPE_COMPLETE_COMPILE = 21;
+	public static final int LOG_TYPE_COMPILE_IO_ERROR = 18;
+	public static final int LOG_TYPE_COMPILE_SUCCESS = 21;
+	public static final int LOG_TYPE_COMPILE_FAILED = 22;
 
 	private static CompilerManagement obj;
 
@@ -114,9 +115,24 @@ public class CompilerManagement {
 				}
 
 				Date begin = new Date();
-				CompilerTask task = new CompilerTask(bp);
+				CompilerTask task;
 				try {
-					task.deployFile();
+					task = new CompilerTask(bp);
+				} catch (Exception e) {
+					Log.record(Log.ERR, getClass(), e.getMessage());
+					HashMap<String, Object> map = new HashMap<String, Object>();
+					map.put("trace", formatStackTrace(e));
+					log(LOG_TYPE_COPY_FILE_ERROR, bp.getUid(),
+							bp.getReversion(), bp.getId(), map, map.getClass());
+					continue;
+				}
+
+				try {
+					if (bp.isRollback()) {
+						task.restoreFile();
+					} else {
+						task.deployFile();
+					}
 				} catch (IOException e) {
 					Log.record(Log.ERR, Task.class.getName(), e);
 					HashMap<String, Object> map = new HashMap<String, Object>();
@@ -126,9 +142,9 @@ public class CompilerManagement {
 					continue;
 				}
 
-				boolean hasErr = false;
+				boolean success = false;
 				try {
-					hasErr = task.compile();
+					success = task.compile();
 				} catch (IOException e1) {
 					Log.record(Log.ERR, Task.class.getName(), e1);
 					HashMap<String, Object> map = new HashMap<String, Object>();
@@ -136,7 +152,7 @@ public class CompilerManagement {
 					List<String> relativeFile = task.getRelativeFiles();
 					String[] files = relativeFile.toArray(new String[0]);
 					map.put("relativeFiles", files);
-					log(LOG_TYPE_COMPILE_PROJECT_ERROR, bp.getUid(),
+					log(LOG_TYPE_COMPILE_IO_ERROR, bp.getUid(),
 							bp.getReversion(), bp.getId(), map, map.getClass());
 
 					try {
@@ -154,19 +170,21 @@ public class CompilerManagement {
 						bp.getProcess(), lastTime, relativeFile.size());
 				map.put("relativeFiles", relativeFile);
 				map.put("compileOutput", task.getLog());
-				log(LOG_TYPE_COMPILE_PROJECT_ERROR, bp.getUid(),
+				log(success ? LOG_TYPE_COMPILE_SUCCESS
+						: LOG_TYPE_COMPILE_FAILED, bp.getUid(),
 						bp.getReversion(), bp.getId(), map, map.getClass());
 
 				try {
-					if (!hasErr) {
+					if (success) {
 						updateStatus(bp.getId(),
 								CompilerTask.STATUS_ALREADY_EXECUTE,
-								CompilerTask.OFFICIAL_ALREADY_OFFICIAL);
+								CompilerTask.OFFICIAL_ALREADY_OFFICIAL,
+								bp.getProcess());
 						// TODO upload file and restart tomcat.
 
 					} else {
 						updateStatus(bp.getId(),
-								CompilerTask.STATUS_ALREADY_EXECUTE);
+								CompilerTask.STATUS_ALREADY_ROLLBACK);
 						try {
 							task.restoreFile();
 						} catch (IOException e) {
@@ -250,12 +268,12 @@ public class CompilerManagement {
 			}
 		}
 
-		private void updateStatus(Integer id, Integer status, Integer official)
-				throws SQLException {
+		private void updateStatus(Integer id, Integer status, Integer official,
+				Integer process) throws SQLException {
 			String sql = String
-					.format("update %s.svn_push set status=%s, official=%s where tid=%s",
+					.format("update %s.svn_push set status=%s, official=%s, process=%s where tid=%s",
 							Config.factory().get("dbName"), status, official,
-							id);
+							process, id);
 			if (!session.query(sql)) {
 				throw new SQLException(String.format(
 						"Can not update push record status using tid=%s", id));

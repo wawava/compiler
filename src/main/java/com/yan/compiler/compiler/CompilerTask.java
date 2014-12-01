@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,7 +30,7 @@ public class CompilerTask {
 	public static final Integer STATUS_ALREADY_ROLLBACK = 2;
 	public static final Integer STATUS_COMPILER_RECEIVED = 4;
 	public static final Integer STATUS_COMPILING = 5;
-	
+
 	public static final Integer OFFICIAL_ALREADY_OFFICIAL = 1;
 
 	private String project;
@@ -136,7 +137,7 @@ public class CompilerTask {
 		for (Entry<String, String> entry : env.entrySet()) {
 			String key = entry.getKey();
 			String val;
-			if (key.equals("JAVA_HOME")) {
+			if (key.equals("JAVA_HOME") && null != jdkHome) {
 				val = jdkHome;
 			} else {
 				val = entry.getValue();
@@ -147,6 +148,7 @@ public class CompilerTask {
 		}
 		String[] envp = envList.toArray(new String[0]);
 
+		Log.record(Log.INFO, getClass(), "Run shell " + Arrays.toString(cmd));
 		Runtime runtime = Runtime.getRuntime();
 		Process process = runtime.exec(cmd, envp, new File(compileDir));
 		BufferedReader br = new BufferedReader(new InputStreamReader(
@@ -156,6 +158,14 @@ public class CompilerTask {
 		String str;
 		while (null != (str = br.readLine())) {
 			output.addLast(str);
+			Log.record(Log.INFO, getClass(), "InputStream: " + str);
+		}
+		br.close();
+
+		br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+		while (null != (str = br.readLine())) {
+			output.addLast(str);
+			Log.record(Log.INFO, getClass(), "ErrorStream: " + str);
 		}
 		br.close();
 
@@ -171,7 +181,6 @@ public class CompilerTask {
 					error.addLast(_str);
 				}
 			}
-			Log.record(Log.INFO, getClass(), _str);
 		}
 
 		StringBuilder outputBuilder = new StringBuilder();

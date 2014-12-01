@@ -22,6 +22,8 @@ public class BasePackage {
 
 	private int process;
 
+	private boolean isRollback;
+
 	private String str;
 
 	/**
@@ -169,6 +171,22 @@ public class BasePackage {
 	 */
 	public void setProcess(int process) {
 		this.process = process;
+		str = null;
+	}
+
+	/**
+	 * @return the isRollback
+	 */
+	public boolean isRollback() {
+		return isRollback;
+	}
+
+	/**
+	 * @param isRollback
+	 *            the isRollback to set
+	 */
+	public void setRollback(boolean isRollback) {
+		this.isRollback = isRollback;
 		str = null;
 	}
 
