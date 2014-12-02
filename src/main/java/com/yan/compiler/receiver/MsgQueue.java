@@ -83,9 +83,9 @@ public class MsgQueue {
 				Log.record(Log.INFO, getClass(), "Create BasePackage List: "
 						+ project);
 				workQueue.put(project, list);
-				CompilerManagement manage = CompilerManagement.factory();
-				manage.createWorker(project);
 			}
+			CompilerManagement manage = CompilerManagement.factory();
+			manage.createWorker(project);
 		}
 		Log.record(Log.DEBUG, getClass(), "Unlock workQueue");
 		LinkedList<BasePackage> list = workQueue.get(project);

@@ -13,7 +13,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang.StringEscapeUtils;
+
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.yan.compiler.Log;
 import com.yan.compiler.config.Config;
 import com.yan.compiler.db.ConnManagement;
@@ -50,7 +53,11 @@ public class CompilerManagement {
 
 	public boolean createWorker(String project) {
 		if (threads.containsKey(project)) {
-			return true;
+			Task oldTask = (Task) threads.get(project);
+			if (oldTask.isAlive() || !oldTask.isInterrupted()) {
+				return true;
+			}
+			oldTask.stopTask();
 		}
 
 		Task task = new Task(project);
@@ -65,7 +72,7 @@ public class CompilerManagement {
 		while (it.hasNext()) {
 			Entry<String, Runnable> entry = it.next();
 			Task task = (Task) entry.getValue();
-			task.stop();
+			task.stopTask();
 		}
 
 		pool.shutdown();
@@ -86,7 +93,7 @@ public class CompilerManagement {
 		}
 	}
 
-	class Task implements Runnable {
+	class Task extends Thread {
 
 		private String project;
 
@@ -98,104 +105,161 @@ public class CompilerManagement {
 
 		public Task(String project) {
 			this.project = project;
-			gson = new Gson();
+			gson = new GsonBuilder().disableHtmlEscaping().create();
 		}
 
-		public void run() {
-			Log.record(Log.DEBUG, getClass(), "Run Compiler-Task: " + project);
-			while (running) {
-				BasePackage bp = queue.getPackage(project);
+		private boolean mkDbConn(BasePackage bp) {
+			try {
+				session = ConnManagement.factory().connect();
+				updateStatus(bp.getId(), CompilerTask.STATUS_COMPILING);
+				return true;
+			} catch (SQLException e) {
+				Log.record(Log.ERR, Task.class.getName(), e);
+				return false;
+			}
+		}
 
-				try {
-					session = ConnManagement.factory().connect();
-					updateStatus(bp.getId(), CompilerTask.STATUS_COMPILING);
-				} catch (SQLException e1) {
-					Log.record(Log.ERR, Task.class.getName(), e1);
-					continue;
+		private void freeConn() {
+			try {
+				session.close();
+			} catch (SQLException e1) {
+				Log.record(Log.ERR, Task.class.getName(), e1);
+			}
+			session = null;
+		}
+
+		private CompilerTask createTask(BasePackage bp) {
+			CompilerTask task = null;
+			try {
+				task = new CompilerTask(bp);
+			} catch (Exception e) {
+				Log.record(Log.ERR, getClass(), e.getMessage());
+				HashMap<String, Object> map = new HashMap<String, Object>();
+				map.put("trace", formatStackTrace(e));
+				log(LOG_TYPE_COPY_FILE_ERROR, bp.getUid(), bp.getReversion(),
+						bp.getId(), map, map.getClass());
+
+				freeConn();
+				task = null;
+			}
+			return task;
+		}
+
+		private boolean cpFile(CompilerTask task, BasePackage bp) {
+			try {
+				if (bp.isRollback()) {
+					task.restoreFile();
+				} else {
+					task.deployFile();
 				}
+				return true;
+			} catch (IOException e) {
+				Log.record(Log.ERR, Task.class.getName(), e);
+				HashMap<String, Object> map = new HashMap<String, Object>();
+				map.put("trace", formatStackTrace(e));
+				log(LOG_TYPE_COPY_FILE_ERROR, bp.getUid(), bp.getReversion(),
+						bp.getId(), map, map.getClass());
+				freeConn();
+				return false;
+			}
+		}
 
-				Date begin = new Date();
-				CompilerTask task;
-				try {
-					task = new CompilerTask(bp);
-				} catch (Exception e) {
-					Log.record(Log.ERR, getClass(), e.getMessage());
-					HashMap<String, Object> map = new HashMap<String, Object>();
-					map.put("trace", formatStackTrace(e));
-					log(LOG_TYPE_COPY_FILE_ERROR, bp.getUid(),
-							bp.getReversion(), bp.getId(), map, map.getClass());
-					continue;
-				}
+		private int compile(CompilerTask task, BasePackage bp) {
+			boolean success = false;
+			try {
+				success = task.compile();
+				return success ? 1 : 0;
+			} catch (IOException e1) {
+				Log.record(Log.ERR, Task.class.getName(), e1);
+				HashMap<String, Object> map = new HashMap<String, Object>();
+				map.put("trace", formatStackTrace(e1));
+				List<String> relativeFile = task.getRelativeFiles();
+				String[] files = relativeFile.toArray(new String[0]);
+				map.put("relativeFiles", files);
+				log(LOG_TYPE_COMPILE_IO_ERROR, bp.getUid(), bp.getReversion(),
+						bp.getId(), map, map.getClass());
 
 				try {
-					if (bp.isRollback()) {
-						task.restoreFile();
-					} else {
-						task.deployFile();
-					}
+					task.restoreFile();
 				} catch (IOException e) {
 					Log.record(Log.ERR, Task.class.getName(), e);
-					HashMap<String, Object> map = new HashMap<String, Object>();
-					map.put("trace", formatStackTrace(e));
-					log(LOG_TYPE_COPY_FILE_ERROR, bp.getUid(),
-							bp.getReversion(), bp.getId(), map, map.getClass());
-					continue;
 				}
 
-				boolean success = false;
-				try {
-					success = task.compile();
-				} catch (IOException e1) {
-					Log.record(Log.ERR, Task.class.getName(), e1);
-					HashMap<String, Object> map = new HashMap<String, Object>();
-					map.put("trace", formatStackTrace(e1));
-					List<String> relativeFile = task.getRelativeFiles();
-					String[] files = relativeFile.toArray(new String[0]);
-					map.put("relativeFiles", files);
-					log(LOG_TYPE_COMPILE_IO_ERROR, bp.getUid(),
-							bp.getReversion(), bp.getId(), map, map.getClass());
+				freeConn();
+				return -1;
+			}
+		}
 
+		private void addLog(CompilerTask task, BasePackage bp, long lastTime,
+				boolean success) {
+			List<String> relativeFile = task.getRelativeFiles();
+			HashMap<String, Object> map = mkInfo(bp.getThisProcess(),
+					bp.getProcess(), lastTime, relativeFile.size());
+			map.put("relativeFiles", relativeFile);
+			map.put("compileOutput", task.getLog());
+			log(success ? LOG_TYPE_COMPILE_SUCCESS : LOG_TYPE_COMPILE_FAILED,
+					bp.getUid(), bp.getReversion(), bp.getId(), map,
+					map.getClass());
+		}
+
+		private void deploy(CompilerTask task, BasePackage bp, boolean success) {
+			try {
+				if (success) {
+					updateStatus(bp.getId(),
+							CompilerTask.STATUS_ALREADY_EXECUTE,
+							CompilerTask.OFFICIAL_ALREADY_OFFICIAL,
+							bp.getProcess());
+					// TODO upload file and restart tomcat.
+
+				} else {
+					updateStatus(bp.getId(),
+							CompilerTask.STATUS_ALREADY_ROLLBACK);
 					try {
 						task.restoreFile();
 					} catch (IOException e) {
 						Log.record(Log.ERR, Task.class.getName(), e);
 					}
-					continue;
 				}
 
-				Date end = new Date();
-				long lastTime = end.getTime() - begin.getTime();
-				List<String> relativeFile = task.getRelativeFiles();
-				HashMap<String, Object> map = mkInfo(bp.getThisProcess(),
-						bp.getProcess(), lastTime, relativeFile.size());
-				map.put("relativeFiles", relativeFile);
-				map.put("compileOutput", task.getLog());
-				log(success ? LOG_TYPE_COMPILE_SUCCESS
-						: LOG_TYPE_COMPILE_FAILED, bp.getUid(),
-						bp.getReversion(), bp.getId(), map, map.getClass());
+			} catch (SQLException e) {
+				Log.record(Log.ERR, Task.class.getName(), e);
+			}
+		}
 
+		public void run() {
+			Log.record(Log.DEBUG, getClass(), "Run Compiler-Task: " + project);
+			while (running) {
 				try {
-					if (success) {
-						updateStatus(bp.getId(),
-								CompilerTask.STATUS_ALREADY_EXECUTE,
-								CompilerTask.OFFICIAL_ALREADY_OFFICIAL,
-								bp.getProcess());
-						// TODO upload file and restart tomcat.
-
-					} else {
-						updateStatus(bp.getId(),
-								CompilerTask.STATUS_ALREADY_ROLLBACK);
-						try {
-							task.restoreFile();
-						} catch (IOException e) {
-							Log.record(Log.ERR, Task.class.getName(), e);
-						}
+					BasePackage bp = queue.getPackage(project);
+					if (!mkDbConn(bp)) {
+						continue;
 					}
-					session.close();
-				} catch (SQLException e) {
+
+					Date begin = new Date();
+					CompilerTask task = createTask(bp);
+					if (null == task) {
+						continue;
+					}
+
+					if (!cpFile(task, bp)) {
+						continue;
+					}
+
+					int res = compile(task, bp);
+					if (-1 == res) {
+						continue;
+					}
+					boolean success = (1 == res);
+
+					Date end = new Date();
+					long lastTime = end.getTime() - begin.getTime();
+					addLog(task, bp, lastTime, success);
+
+					deploy(task, bp, success);
+					freeConn();
+				} catch (Exception e) {
 					Log.record(Log.ERR, Task.class.getName(), e);
 				}
-				session = null;
 			}
 		}
 
@@ -206,7 +270,7 @@ public class CompilerManagement {
 			return project;
 		}
 
-		public void stop() {
+		public void stopTask() {
 			running = false;
 		}
 
@@ -235,7 +299,9 @@ public class CompilerManagement {
 				sbd.append("\tat ");
 				sbd.append(traceElement.toString());
 			}
-			return sbd.toString();
+			String str = sbd.toString();
+			str = StringEscapeUtils.escapeJava(str);
+			return str;
 		}
 
 		private HashMap<String, Object> mkInfo(Integer thisProcess,

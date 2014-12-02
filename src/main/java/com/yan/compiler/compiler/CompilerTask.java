@@ -9,13 +9,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.commons.lang.StringEscapeUtils;
 
 import com.yan.compiler.Log;
 import com.yan.compiler.config.Config;
@@ -45,7 +49,8 @@ public class CompilerTask {
 	private List<String> relativeFiles;
 
 	private String log;
-	private String[] cmd;
+	private String[] cleanList;
+	private String[] packageList;
 
 	public CompilerTask(BasePackage bp) {
 		Config config = Config.factory();
@@ -59,7 +64,34 @@ public class CompilerTask {
 		backupDir = config.getBackupDir(name, env);
 
 		String cmd = config.get("compileCmd");
-		this.cmd = cmd.split("\\|\\|");
+		String[] cmdArr = cmd.split("\\|\\|");
+
+		LinkedList<String> cmdList = new LinkedList<String>();
+		for (String _cmd : cmdArr) {
+			if (!_cmd.isEmpty())
+				cmdList.addLast(_cmd);
+		}
+		String[] cleanCmd = { "mvn", "-q", "-B", "-ff", "clean",
+				"generate-sources", "process-resources", "compile",
+				"test-compile" };
+		for (String _cmd : cleanCmd) {
+			if (!_cmd.isEmpty())
+				cmdList.addLast(_cmd);
+		}
+		String[] cleanList = cmdList.toArray(new String[0]);
+		this.cleanList = cleanList;
+
+		cmdList.clear();
+		for (String _cmd : cmdArr) {
+			if (!_cmd.isEmpty())
+				cmdList.addLast(_cmd);
+		}
+		String[] packageCmd = { "mvn", "-q", "-B", "-ff", "package" };
+		for (String _cmd : packageCmd) {
+			cmdList.addLast(_cmd);
+		}
+		String[] packageList = cmdList.toArray(new String[0]);
+		this.packageList = packageList;
 	}
 
 	private List<String> scanDir(String dir) {
@@ -103,7 +135,7 @@ public class CompilerTask {
 	}
 
 	public void restoreFile() throws IOException {
-		_copy(backupDir, compileDir);
+		relativeFiles = _copy(backupDir, compileDir);
 	}
 
 	private List<String> _copy(String sourceDir, String targetDir)
@@ -114,6 +146,7 @@ public class CompilerTask {
 		Path targetRoot = Paths.get(targetDir);
 
 		List<String> files = scanDir(sourceDir);
+		List<String> fileList = new LinkedList<String>();
 		Iterator<String> it = files.iterator();
 		while (it.hasNext()) {
 			String path = it.next();
@@ -126,29 +159,22 @@ public class CompilerTask {
 				parent.mkdirs();
 			}
 			Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+			fileList.add(StringEscapeUtils.escapeJava(rel.toString()));
 		}
-		return files;
+		return fileList;
 	}
 
-	public boolean compile() throws IOException {
-		Map<String, String> env = System.getenv();
-		String jdkHome = env.get("JDK_HOME");
-		List<String> envList = new LinkedList<String>();
-		for (Entry<String, String> entry : env.entrySet()) {
-			String key = entry.getKey();
-			String val;
-			if (key.equals("JAVA_HOME") && null != jdkHome) {
-				val = jdkHome;
-			} else {
-				val = entry.getValue();
-			}
-			String _env = String.format("%s=%s", key, val);
-			Log.record(Log.DEBUG, getClass(), "Get env: " + _env);
-			envList.add(_env);
-		}
-		String[] envp = envList.toArray(new String[0]);
+	private boolean clean(String[] envp) throws IOException {
+		return exec(cleanList, envp);
+	}
 
+	private boolean _package(String[] envp) throws IOException {
+		return exec(packageList, envp);
+	}
+
+	private boolean exec(String[] cmd, String[] envp) throws IOException {
 		Log.record(Log.INFO, getClass(), "Run shell " + Arrays.toString(cmd));
+
 		Runtime runtime = Runtime.getRuntime();
 		Process process = runtime.exec(cmd, envp, new File(compileDir));
 		BufferedReader br = new BufferedReader(new InputStreamReader(
@@ -191,8 +217,95 @@ public class CompilerTask {
 			outputBuilder.append(_str);
 			outputBuilder.append("\n");
 		}
-		log = outputBuilder.toString();
+		if (null == log) {
+			log = outputBuilder.toString();
+		} else {
+			log += outputBuilder.toString();
+		}
 		return !hasErr;
+	}
+
+	private boolean copyXml() throws IOException {
+		Path compilePath = Paths.get(compileDir);
+		Path targetPath = compilePath.resolve("target");
+		Path classesPath = targetPath.resolve("classes");
+		File classesFile = classesPath.toFile();
+
+		Path sourcePath = Paths.get(compileDir, "src", "main", "java");
+		File sourceFile = sourcePath.toFile();
+
+		Log.record(Log.INFO, getClass(), String.format(
+				"Copy resource file from [%s] to [%s]",
+				sourceFile.getAbsolutePath(), classesFile.getAbsolutePath()));
+		LinkedList<String> resourceList = new LinkedList<String>();
+		_scanDir(sourceFile, resourceList);
+
+		LinkedList<String> classesList = new LinkedList<String>();
+		_scanDir(classesFile, classesList);
+		Set<String> classesSet = new HashSet<String>();
+		for (String classesPathStr : classesList) {
+			Path path = Paths.get(classesPathStr);
+			Path relPath = classesPath.relativize(path);
+			File file = relPath.toFile();
+			String fileName = file.getPath();
+			if (fileName.endsWith(".class")) {
+				fileName = fileName.substring(0, fileName.length() - 5)
+						+ "java";
+			}
+			classesSet.add(fileName);
+		}
+
+		for (String resourcePathStr : resourceList) {
+			Path path = Paths.get(resourcePathStr);
+			Path relPath = sourcePath.relativize(path);
+			File file = relPath.toFile();
+			String fileName = file.getPath();
+			if (!classesSet.contains(fileName)) {
+				Path placePath = classesPath.resolve(relPath);
+				Path targetParent = placePath.getParent();
+				File parent = targetParent.toFile();
+				if (!parent.exists()) {
+					parent.mkdirs();
+				}
+				Log.record(Log.DEBUG, getClass(), String.format(
+						"Copy [%s] to [%s]", path.toAbsolutePath().toString(),
+						placePath.toAbsolutePath().toString()));
+				Files.copy(path, placePath, StandardCopyOption.REPLACE_EXISTING);
+			}
+		}
+
+		return true;
+	}
+
+	public boolean compile() throws IOException {
+		Map<String, String> env = System.getenv();
+		String jdkHome = env.get("JDK_HOME");
+		List<String> envList = new LinkedList<String>();
+		for (Entry<String, String> entry : env.entrySet()) {
+			String key = entry.getKey();
+			String val;
+			if (key.equals("JAVA_HOME") && null != jdkHome) {
+				val = jdkHome;
+			} else {
+				val = entry.getValue();
+			}
+			String _env = String.format("%s=%s", key, val);
+			Log.record(Log.DEBUG, getClass(), "Get env: " + _env);
+			envList.add(_env);
+		}
+		String[] envp = envList.toArray(new String[0]);
+		if (!clean(envp)) {
+			return false;
+		}
+
+		// compare and copy the xml file.
+		copyXml();
+
+		if (!_package(envp)) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**

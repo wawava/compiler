@@ -36,24 +36,24 @@ public class Config {
 	/**
 	 * 默认配置文件名
 	 */
-	public static final String CFG_FILE_NAME = "config.properties";
+	public static final String CFG_FILE_NAME = "config";
 	/**
 	 * 默认配置文件父目录名
 	 */
 	public static final String CFG_FILE_PARENT_DIR_NAME = "config";
-	/**
-	 * 默认的配置文件路径，默认值为 <b>运行目录/config/config.xml</b>
-	 */
-	public static String CFG_FILE_PATH = null;
-	static {
-		StringBuilder sbd = new StringBuilder(50);
-		sbd.append(USER_DIR);
-		sbd.append(File.separator);
-		sbd.append(CFG_FILE_PARENT_DIR_NAME);
-		sbd.append(File.separator);
-		sbd.append(CFG_FILE_NAME);
-		CFG_FILE_PATH = sbd.toString();
-	};
+
+	public static Config factory(boolean isDebug) {
+		if (null == Config.obj) {
+			try {
+				Log.record(Log.DEBUG, Config.class, "factory Config");
+				Config.obj = new Config(isDebug);
+			} catch (Exception e) {
+				Log.record(Log.ERR, Config.class.getName(), e);
+				System.exit(0);
+			}
+		}
+		return Config.obj;
+	}
 
 	/**
 	 * 获取本类的引用。如果出现异常，则打印异常并直接退出。
@@ -61,16 +61,7 @@ public class Config {
 	 * @return
 	 */
 	public static Config factory() {
-		if (null == Config.obj) {
-			try {
-				Log.record(Log.DEBUG, Config.class, "factory Config");
-				Config.obj = new Config();
-			} catch (Exception e) {
-				Log.record(Log.ERR, Config.class.getName(), e);
-				System.exit(0);
-			}
-		}
-		return Config.obj;
+		return factory(false);
 	}
 
 	private MessageDigest md;
@@ -123,11 +114,27 @@ public class Config {
 		}
 	}
 
-	private Config() throws IOException, IllegalArgumentException,
-			IllegalAccessException, NoSuchAlgorithmException {
-		Log.record(Log.DEBUG, Config.class, "Read config from file: "
-				+ CFG_FILE_PATH);
-		File file = new File(CFG_FILE_PATH);
+	private Config() throws IllegalArgumentException, IllegalAccessException,
+			NoSuchAlgorithmException, IOException {
+		this(false);
+	}
+
+	private Config(boolean isDebug) throws IOException,
+			IllegalArgumentException, IllegalAccessException,
+			NoSuchAlgorithmException {
+		String fileName;
+		if (isDebug) {
+			fileName = CFG_FILE_NAME + ".debug.properties";
+		} else {
+			fileName = CFG_FILE_NAME + ".properties";
+		}
+		Path configPath = Paths.get(USER_DIR, CFG_FILE_PARENT_DIR_NAME,
+				fileName);
+		configPath = configPath.toAbsolutePath();
+		File file = configPath.toFile();
+		Log.record(Log.DEBUG, Config.class,
+				"Read config from file: " + file.getPath());
+
 		Properties prop = new Properties();
 		InputStream in = new BufferedInputStream(new FileInputStream(file));
 		prop.load(in);
