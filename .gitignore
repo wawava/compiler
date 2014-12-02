@@ -14,8 +14,7 @@ target/
 *~.nib
 local.properties
 .classpath
-.settings/
-.settings/*
+.settings
 .loadpath
 
 # External tool builders
@@ -216,5 +215,3 @@ pip-log.txt
 #Mr Developer
 .mr.developer.cfg
 /target/
-.settings
-.settings/org.eclipse.jdt.core.prefs
