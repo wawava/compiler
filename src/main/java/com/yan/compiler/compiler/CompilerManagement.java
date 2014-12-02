@@ -294,10 +294,12 @@ public class CompilerManagement {
 		private String formatStackTrace(Exception e) {
 			StringBuilder sbd = new StringBuilder();
 			sbd.append(e.toString());
+			sbd.append("\n");
 			StackTraceElement[] trace = e.getStackTrace();
 			for (StackTraceElement traceElement : trace) {
 				sbd.append("\tat ");
 				sbd.append(traceElement.toString());
+				sbd.append("\n");
 			}
 			String str = sbd.toString();
 			str = StringEscapeUtils.escapeJava(str);
