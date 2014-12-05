@@ -92,8 +92,10 @@ public class Session {
 	}
 
 	public void showdown() throws SQLException {
-		statement.close();
-		statement = null;
+		if (null != statement) {
+			statement.close();
+			statement = null;
+		}
 		result = null;
 		count = 0;
 	}

@@ -233,47 +233,46 @@ public class CompilerManagement {
 			}
 		}
 
+		private boolean running = true;
+
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run Compiler-Task: " + project);
-			try {
-				while (!isInterrupted()) {
-					try {
-						BasePackage bp = queue.getPackage(project);
-						if (!mkDbConn(bp)) {
-							continue;
-						}
-
-						Date begin = new Date();
-						CompilerTask task = createTask(bp);
-						if (null == task) {
-							continue;
-						}
-
-						if (!cpFile(task, bp)) {
-							continue;
-						}
-
-						int res = compile(task, bp);
-						if (-1 == res) {
-							continue;
-						}
-						boolean success = (1 == res);
-
-						Date end = new Date();
-						long lastTime = end.getTime() - begin.getTime();
-						addLog(task, bp, lastTime, success);
-
-						deploy(task, bp, success);
-						freeConn();
-					} catch (Exception e) {
-						Log.record(Log.ERR, Task.class.getName(), e);
+			while (running) {
+				try {
+					BasePackage bp = queue.getPackage(project);
+					if (null == bp) {
+						continue;
 					}
+
+					if (!mkDbConn(bp)) {
+						continue;
+					}
+
+					Date begin = new Date();
+					CompilerTask task = createTask(bp);
+					if (null == task) {
+						continue;
+					}
+
+					if (!cpFile(task, bp)) {
+						continue;
+					}
+
+					int res = compile(task, bp);
+					if (-1 == res) {
+						continue;
+					}
+					boolean success = (1 == res);
+
+					Date end = new Date();
+					long lastTime = end.getTime() - begin.getTime();
+					addLog(task, bp, lastTime, success);
+
+					deploy(task, bp, success);
+					freeConn();
+				} catch (Exception e) {
+					Log.record(Log.ERR, Task.class.getName(), e);
 				}
-				throw new InterruptedException("Thread: "
-						+ Thread.currentThread().getName()
-						+ " has been interrupted.");
-			} catch (InterruptedException e) {
-				Log.record(Log.INFO, getClass(), e.getMessage());
 			}
 		}
 
@@ -359,9 +358,10 @@ public class CompilerManagement {
 		}
 
 		public void interrupt() {
-			Log.record(Log.INFO, getClass(), "Interrupt thread"
-					+ Thread.currentThread().getName());
+			Log.record(Log.INFO, getClass(), "Interrupt thread " + getName());
+			running = false;
 			super.interrupt();
+			queue.waikupOnWork();
 		}
 	}
 }

@@ -46,10 +46,6 @@ public class Receiver {
 	 */
 	private String addr;
 	/**
-	 * The thread pool of listener. only one thread will be add to this pool.
-	 */
-	private ExecutorService listenerThreadPool;
-	/**
 	 * The listener thread.
 	 */
 	private ListenerTask listener;
@@ -98,19 +94,19 @@ public class Receiver {
 			Log.record(Log.ERR, getClass(), e.getMessage());
 		}
 
-		listenerThreadPool.shutdown();
+		pool.shutdown();
 		try {
 			// Wait a while for existing tasks to terminate
-			if (!listenerThreadPool.awaitTermination(60, TimeUnit.SECONDS)) {
+			if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
 				// Cancel currently executing tasks
-				listenerThreadPool.shutdownNow();
+				pool.shutdownNow();
 				// Wait a while for tasks to respond to being cancelled
-				if (!listenerThreadPool.awaitTermination(60, TimeUnit.SECONDS))
+				if (!pool.awaitTermination(60, TimeUnit.SECONDS))
 					Log.record(Log.ERR, getClass(), "Pool did not terminate");
 			}
 		} catch (InterruptedException ie) {
 			// (Re-)Cancel if current thread also interrupted
-			listenerThreadPool.shutdownNow();
+			pool.shutdownNow();
 			// Preserve interrupt status
 			Thread.currentThread().interrupt();
 			Log.record(Log.ERR, Receiver.class.getName(), ie);
@@ -147,35 +143,30 @@ public class Receiver {
 			}
 		}
 
+		private boolean running = true;
+
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run ListenerTask");
 			MsgQueue queue = MsgQueue.factory();
-			try {
-				while (!isInterrupted()) {
-					byte[] buf = new byte[PACKAGE_LENGTH];
-					DatagramPacket dp = new DatagramPacket(buf, buf.length);
-					try {
-						socket.receive(dp);
-						buf = dp.getData();
-						String msg = new String(buf, 0, dp.getLength());
-						Log.record(Log.DEBUG, getClass(), "Receive msg: " + msg);
-						queue.addMsg(msg);
-					} catch (IOException e) {
-						Log.record(Log.ERR, ListenerTask.class.getName(), e);
-					}
+			while (running) {
+				byte[] buf = new byte[PACKAGE_LENGTH];
+				DatagramPacket dp = new DatagramPacket(buf, buf.length);
+				try {
+					socket.receive(dp);
+					buf = dp.getData();
+					String msg = new String(buf, 0, dp.getLength());
+					Log.record(Log.DEBUG, getClass(), "Receive msg: " + msg);
+					queue.addMsg(msg);
+				} catch (IOException e) {
+					Log.record(Log.ERR, ListenerTask.class.getName(), e);
 				}
-				throw new InterruptedException("Thread: "
-						+ Thread.currentThread().getName()
-						+ " has been interrupted.");
-			} catch (InterruptedException ie) {
-				// 2. InterruptedException异常保证，当InterruptedException异常产生时，线程被终止。
-				Log.record(Log.INFO, getClass(), ie.getMessage());
 			}
 		}
 
 		public void interrupt() {
-			Log.record(Log.INFO, getClass(), "Interrupt thread"
-					+ Thread.currentThread().getName());
+			Log.record(Log.INFO, getClass(), "Interrupt thread " + getName());
+			running = false;
+			socket.close();
 			super.interrupt();
 		}
 	}
@@ -200,6 +191,8 @@ public class Receiver {
 			}
 		}
 
+		private boolean running = true;
+
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run DeliverTask");
 			MsgQueue queue = MsgQueue.factory();
@@ -209,7 +202,7 @@ public class Receiver {
 			String dbName = Config.factory().get("dbName");
 
 			try {
-				while (!isInterrupted()) {
+				while (running) {
 					Log.record(Log.DEBUG, getClass(),
 							"Get massage from MsgQueue");
 					String msg = queue.getMsg();
@@ -257,19 +250,16 @@ public class Receiver {
 						}
 					}
 				}
-				throw new InterruptedException("Thread: "
-						+ Thread.currentThread().getName()
-						+ " has been interrupted.");
-			} catch (InterruptedException ie) {
-				// 2. InterruptedException异常保证，当InterruptedException异常产生时，线程被终止。
+			} catch (Exception ie) {
 				Log.record(Log.INFO, getClass(), ie.getMessage());
 			}
 		}
 
 		public void interrupt() {
-			Log.record(Log.INFO, getClass(), "Interrupt thread"
-					+ Thread.currentThread().getName());
+			Log.record(Log.INFO, getClass(), "Interrupt thread " + getName());
+			running = false;
 			super.interrupt();
+			MsgQueue.factory().waikupOnQueue();
 		}
 	}
 }

@@ -1,8 +1,10 @@
 package com.yan.compiler.receiver;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import com.yan.compiler.Log;
 import com.yan.compiler.compiler.CompilerManagement;
@@ -62,10 +64,32 @@ public class MsgQueue {
 					e.printStackTrace();
 				}
 			}
-			msg = queue.removeFirst();
+			try {
+				msg = queue.removeFirst();
+			} catch (Exception e) {
+				msg = null;
+			}
 			Log.record(Log.INFO, getClass(), "Get Massage: " + msg);
 		}
 		return msg;
+	}
+
+	public void waikupOnQueue() {
+		synchronized (queue) {
+			queue.notifyAll();
+		}
+	}
+
+	public void waikupOnWork() {
+		Iterator<Entry<String, LinkedList<BasePackage>>> it = workQueue
+				.entrySet().iterator();
+		while (it.hasNext()) {
+			Entry<String, LinkedList<BasePackage>> entry = it.next();
+			LinkedList<BasePackage> list = entry.getValue();
+			synchronized (list) {
+				list.notifyAll();
+			}
+		}
 	}
 
 	/**
@@ -124,9 +148,13 @@ public class MsgQueue {
 					}
 
 				}
-				bp = list.removeFirst();
-				Log.record(Log.INFO, getClass(),
-						"Get BasePackage: " + bp.toString());
+				try {
+					bp = list.removeFirst();
+					Log.record(Log.INFO, getClass(),
+							"Get BasePackage: " + bp.toString());
+				} catch (Exception e) {
+					bp = null;
+				}
 			}
 		}
 		return bp;
