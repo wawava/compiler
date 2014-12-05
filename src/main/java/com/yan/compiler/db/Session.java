@@ -85,12 +85,16 @@ public class Session {
 	}
 
 	public void close() throws SQLException {
+		showdown();
+
+		ConnManagement m = ConnManagement.factory();
+		m.free(id);
+	}
+
+	public void showdown() throws SQLException {
 		statement.close();
 		statement = null;
 		result = null;
 		count = 0;
-
-		ConnManagement m = ConnManagement.factory();
-		m.free(id);
 	}
 }

@@ -13,8 +13,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -278,22 +276,7 @@ public class CompilerTask {
 	}
 
 	public boolean compile() throws IOException {
-		Map<String, String> env = System.getenv();
-		String jdkHome = env.get("JDK_HOME");
-		List<String> envList = new LinkedList<String>();
-		for (Entry<String, String> entry : env.entrySet()) {
-			String key = entry.getKey();
-			String val;
-			if (key.equals("JAVA_HOME") && null != jdkHome) {
-				val = jdkHome;
-			} else {
-				val = entry.getValue();
-			}
-			String _env = String.format("%s=%s", key, val);
-			Log.record(Log.DEBUG, getClass(), "Get env: " + _env);
-			envList.add(_env);
-		}
-		String[] envp = envList.toArray(new String[0]);
+		String[] envp = Config.factory().getEnvp();
 		if (!clean(envp)) {
 			return false;
 		}

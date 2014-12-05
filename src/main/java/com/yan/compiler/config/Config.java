@@ -13,6 +13,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -74,6 +76,8 @@ public class Config {
 	private String cacheDir;
 	private String backupDir;
 	private Boolean sshTunnel = false;
+
+	private String[] envp;
 
 	@SuppressWarnings("unchecked")
 	private void assign(Class<? extends Config> clazz, String name, Object val) {
@@ -154,6 +158,23 @@ public class Config {
 		}
 
 		md = MessageDigest.getInstance("MD5");
+
+		Map<String, String> env = System.getenv();
+		String jdkHome = env.get("JDK_HOME");
+		List<String> envList = new LinkedList<String>();
+		for (Entry<String, String> entry : env.entrySet()) {
+			String key = entry.getKey();
+			String val;
+			if (key.equals("JAVA_HOME") && null != jdkHome) {
+				val = jdkHome;
+			} else {
+				val = entry.getValue();
+			}
+			String _env = String.format("%s=%s", key, val);
+			Log.record(Log.DEBUG, getClass(), "Get env: " + _env);
+			envList.add(_env);
+		}
+		envp = envList.toArray(new String[0]);
 	}
 
 	public String getCompileDir(String project, String env) {
@@ -241,5 +262,9 @@ public class Config {
 	 */
 	public Boolean usingSSHTunnel() {
 		return sshTunnel;
+	}
+
+	public String[] getEnvp() {
+		return envp;
 	}
 }

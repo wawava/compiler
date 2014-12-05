@@ -54,10 +54,14 @@ public class CompilerManagement {
 	public boolean createWorker(String project) {
 		if (threads.containsKey(project)) {
 			Task oldTask = (Task) threads.get(project);
-			if (oldTask.isAlive() || !oldTask.isInterrupted()) {
+			if (oldTask.isAlive()) {
 				return true;
 			}
-			oldTask.stopTask();
+			try {
+				oldTask.interrupt();
+			} catch (Exception e) {
+				Log.record(Log.ERR, getClass(), e.getMessage());
+			}
 		}
 
 		Task task = new Task(project);
@@ -72,7 +76,11 @@ public class CompilerManagement {
 		while (it.hasNext()) {
 			Entry<String, Runnable> entry = it.next();
 			Task task = (Task) entry.getValue();
-			task.stopTask();
+			try {
+				task.interrupt();
+			} catch (Exception e) {
+				Log.record(Log.ERR, getClass(), e.getMessage());
+			}
 		}
 
 		pool.shutdown();
@@ -83,7 +91,7 @@ public class CompilerManagement {
 				pool.shutdownNow();
 				// Wait a while for tasks to respond to being cancelled
 				if (!pool.awaitTermination(60, TimeUnit.SECONDS))
-					System.err.println("Pool did not terminate");
+					Log.record(Log.ERR, getClass(), "Pool did not terminate");
 			}
 		} catch (InterruptedException ie) {
 			// (Re-)Cancel if current thread also interrupted
@@ -97,13 +105,12 @@ public class CompilerManagement {
 
 		private String project;
 
-		private boolean running = true;
-
 		private Session session;
 
 		private Gson gson;
 
 		public Task(String project) {
+			super(project);
 			this.project = project;
 			gson = new GsonBuilder().disableHtmlEscaping().create();
 		}
@@ -228,38 +235,45 @@ public class CompilerManagement {
 
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run Compiler-Task: " + project);
-			while (running) {
-				try {
-					BasePackage bp = queue.getPackage(project);
-					if (!mkDbConn(bp)) {
-						continue;
+			try {
+				while (!isInterrupted()) {
+					try {
+						BasePackage bp = queue.getPackage(project);
+						if (!mkDbConn(bp)) {
+							continue;
+						}
+
+						Date begin = new Date();
+						CompilerTask task = createTask(bp);
+						if (null == task) {
+							continue;
+						}
+
+						if (!cpFile(task, bp)) {
+							continue;
+						}
+
+						int res = compile(task, bp);
+						if (-1 == res) {
+							continue;
+						}
+						boolean success = (1 == res);
+
+						Date end = new Date();
+						long lastTime = end.getTime() - begin.getTime();
+						addLog(task, bp, lastTime, success);
+
+						deploy(task, bp, success);
+						freeConn();
+					} catch (Exception e) {
+						Log.record(Log.ERR, Task.class.getName(), e);
 					}
-
-					Date begin = new Date();
-					CompilerTask task = createTask(bp);
-					if (null == task) {
-						continue;
-					}
-
-					if (!cpFile(task, bp)) {
-						continue;
-					}
-
-					int res = compile(task, bp);
-					if (-1 == res) {
-						continue;
-					}
-					boolean success = (1 == res);
-
-					Date end = new Date();
-					long lastTime = end.getTime() - begin.getTime();
-					addLog(task, bp, lastTime, success);
-
-					deploy(task, bp, success);
-					freeConn();
-				} catch (Exception e) {
-					Log.record(Log.ERR, Task.class.getName(), e);
 				}
+				throw new InterruptedException("Thread: "
+						+ Thread.currentThread().getName()
+						+ " has been interrupted.");
+			} catch (InterruptedException e) {
+				Log.record(Log.INFO, getClass(), e.getMessage());
 			}
 		}
 
@@ -268,10 +282,6 @@ public class CompilerManagement {
 		 */
 		public String getProject() {
 			return project;
-		}
-
-		public void stopTask() {
-			running = false;
 		}
 
 		private String insertLogSqlTpl = "insert into %s.svn_push_log (tid, uid, time, type, reversion, info) values(%s, %s, %s, %s, %s, '%s')";
@@ -346,6 +356,12 @@ public class CompilerManagement {
 				throw new SQLException(String.format(
 						"Can not update push record status using tid=%s", id));
 			}
+		}
+
+		public void interrupt() {
+			Log.record(Log.INFO, getClass(), "Interrupt thread"
+					+ Thread.currentThread().getName());
+			super.interrupt();
 		}
 	}
 }

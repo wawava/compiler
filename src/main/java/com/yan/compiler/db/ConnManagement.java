@@ -4,8 +4,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
@@ -137,6 +139,20 @@ public class ConnManagement {
 			if (null != session) {
 				idle.addLast(session);
 			}
+		}
+	}
+
+	public void showdown() {
+		Iterator<Entry<String, Session>> it = busy.entrySet().iterator();
+		while (it.hasNext()) {
+			Entry<String, Session> item = it.next();
+			Session session = item.getValue();
+			try {
+				session.showdown();
+			} catch (SQLException e) {
+				Log.record(Log.ERR, getClass(), e.getMessage());
+			}
+			idle.add(session);
 		}
 	}
 }

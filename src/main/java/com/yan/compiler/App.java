@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.yan.compiler.compiler.ShutdownTask;
 import com.yan.compiler.config.Config;
 import com.yan.compiler.receiver.Receiver;
 
@@ -36,6 +37,7 @@ public class App {
 		}
 		Log.init(isDebug);
 		Config.factory(isDebug);
+		Runtime.getRuntime().addShutdownHook(new ShutdownTask());
 		Receiver r = Receiver.factory();
 		r.start();
 

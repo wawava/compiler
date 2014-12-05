@@ -91,8 +91,13 @@ public class Receiver {
 	 * Stop the receiver.
 	 */
 	public void stop() {
-		listener.stop();
-		deliver.stop();
+		try {
+			deliver.interrupt();
+			listener.interrupt();
+		} catch (Exception e) {
+			Log.record(Log.ERR, getClass(), e.getMessage());
+		}
+
 		listenerThreadPool.shutdown();
 		try {
 			// Wait a while for existing tasks to terminate
@@ -101,7 +106,7 @@ public class Receiver {
 				listenerThreadPool.shutdownNow();
 				// Wait a while for tasks to respond to being cancelled
 				if (!listenerThreadPool.awaitTermination(60, TimeUnit.SECONDS))
-					System.err.println("Pool did not terminate");
+					Log.record(Log.ERR, getClass(), "Pool did not terminate");
 			}
 		} catch (InterruptedException ie) {
 			// (Re-)Cancel if current thread also interrupted
@@ -119,7 +124,7 @@ public class Receiver {
 	 * @author Yan
 	 * 
 	 */
-	private class ListenerTask implements Runnable {
+	private class ListenerTask extends Thread {
 		/**
 		 * Socket.
 		 */
@@ -131,6 +136,7 @@ public class Receiver {
 		 * @param port
 		 */
 		public ListenerTask(String addr, int port) {
+			super("ListenerTask");
 			try {
 				Log.record(Log.DEBUG, getClass(), String.format(
 						"Open socket with addr: %s, port: %s.", addr, port));
@@ -141,34 +147,36 @@ public class Receiver {
 			}
 		}
 
-		/**
-		 * true if running. false else.
-		 */
-		private boolean running = true;
-
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run ListenerTask");
 			MsgQueue queue = MsgQueue.factory();
-			while (running) {
-				byte[] buf = new byte[PACKAGE_LENGTH];
-				DatagramPacket dp = new DatagramPacket(buf, buf.length);
-				try {
-					socket.receive(dp);
-					buf = dp.getData();
-					String msg = new String(buf, 0, dp.getLength());
-					Log.record(Log.DEBUG, getClass(), "Receive msg: " + msg);
-					queue.addMsg(msg);
-				} catch (IOException e) {
-					Log.record(Log.ERR, ListenerTask.class.getName(), e);
+			try {
+				while (!isInterrupted()) {
+					byte[] buf = new byte[PACKAGE_LENGTH];
+					DatagramPacket dp = new DatagramPacket(buf, buf.length);
+					try {
+						socket.receive(dp);
+						buf = dp.getData();
+						String msg = new String(buf, 0, dp.getLength());
+						Log.record(Log.DEBUG, getClass(), "Receive msg: " + msg);
+						queue.addMsg(msg);
+					} catch (IOException e) {
+						Log.record(Log.ERR, ListenerTask.class.getName(), e);
+					}
 				}
+				throw new InterruptedException("Thread: "
+						+ Thread.currentThread().getName()
+						+ " has been interrupted.");
+			} catch (InterruptedException ie) {
+				// 2. InterruptedException异常保证，当InterruptedException异常产生时，线程被终止。
+				Log.record(Log.INFO, getClass(), ie.getMessage());
 			}
 		}
 
-		/**
-		 * Stop this thread.
-		 */
-		public void stop() {
-			running = false;
+		public void interrupt() {
+			Log.record(Log.INFO, getClass(), "Interrupt thread"
+					+ Thread.currentThread().getName());
+			super.interrupt();
 		}
 	}
 
@@ -180,27 +188,16 @@ public class Receiver {
 	 * @author Yan
 	 * 
 	 */
-	private class DeliverTask implements Runnable {
+	private class DeliverTask extends Thread {
 		private Session session;
 
 		public DeliverTask() {
+			super("DeliverTask");
 			try {
 				session = ConnManagement.factory().connect();
 			} catch (SQLException e) {
 				Log.record(Log.ERR, getClass(), e.getMessage());
 			}
-		}
-
-		/**
-		 * true while thread running, false else.
-		 */
-		private boolean running = true;
-
-		/**
-		 * stop the thread.
-		 */
-		public void stop() {
-			running = false;
 		}
 
 		public void run() {
@@ -211,48 +208,68 @@ public class Receiver {
 			String updateSqlTpl = "update %s.svn_push set status=%s where tid=%s";
 			String dbName = Config.factory().get("dbName");
 
-			while (running) {
-				Log.record(Log.DEBUG, getClass(), "Get massage from MsgQueue");
-				String msg = queue.getMsg();
-				if (null != msg) {
-					try {
-						BasePackage bp = gson.fromJson(msg, BasePackage.class);
-						Log.record(Log.DEBUG, getClass(), "Decrypt from Json: "
-								+ bp.toString());
-						String sql = String.format(selectSqlTpl, dbName,
-								bp.getId());
-						if (!session.query(sql)) {
-							throw new Exception(
-									String.format(
-											"Can not find push record from svn_push using tid=%s",
-											bp.getId()));
+			try {
+				while (!isInterrupted()) {
+					Log.record(Log.DEBUG, getClass(),
+							"Get massage from MsgQueue");
+					String msg = queue.getMsg();
+					if (null != msg) {
+						try {
+							BasePackage bp = gson.fromJson(msg,
+									BasePackage.class);
+							Log.record(Log.DEBUG, getClass(),
+									"Decrypt from Json: " + bp.toString());
+							String sql = String.format(selectSqlTpl, dbName,
+									bp.getId());
+							if (!session.query(sql)) {
+								throw new Exception(
+										String.format(
+												"Can not find push record from svn_push using tid=%s",
+												bp.getId()));
+							}
+							LinkedList<Map<String, Object>> result = session
+									.getResult();
+							Map<String, Object> map = result.getFirst();
+							Integer status = Integer.valueOf(String.valueOf(map
+									.get("status")));
+							if (!CompilerTask.STATUS_PRE_COMPILING
+									.equals(status)) {
+								Log.record(
+										Log.INFO,
+										getClass(),
+										String.format(
+												"Push status [%s] is not pre_compiling",
+												status));
+								continue;
+							}
+							sql = String.format(updateSqlTpl, dbName,
+									CompilerTask.STATUS_COMPILER_RECEIVED,
+									bp.getId());
+							if (!session.query(sql)) {
+								throw new Exception(
+										String.format(
+												"Can not update push record status to received using tid=%s",
+												bp.getId()));
+							}
+							queue.addPackage(bp);
+						} catch (Exception e) {
+							Log.record(Log.ERR, DeliverTask.class.getName(), e);
 						}
-						LinkedList<Map<String, Object>> result = session
-								.getResult();
-						Map<String, Object> map = result.getFirst();
-						Integer status = Integer.valueOf(String.valueOf(map
-								.get("status")));
-						if (!CompilerTask.STATUS_PRE_COMPILING.equals(status)) {
-							Log.record(Log.INFO, getClass(), String.format(
-									"Push status [%s] is not pre_compiling",
-									status));
-							continue;
-						}
-						sql = String.format(updateSqlTpl, dbName,
-								CompilerTask.STATUS_COMPILER_RECEIVED,
-								bp.getId());
-						if (!session.query(sql)) {
-							throw new Exception(
-									String.format(
-											"Can not update push record status to received using tid=%s",
-											bp.getId()));
-						}
-						queue.addPackage(bp);
-					} catch (Exception e) {
-						Log.record(Log.ERR, DeliverTask.class.getName(), e);
 					}
 				}
+				throw new InterruptedException("Thread: "
+						+ Thread.currentThread().getName()
+						+ " has been interrupted.");
+			} catch (InterruptedException ie) {
+				// 2. InterruptedException异常保证，当InterruptedException异常产生时，线程被终止。
+				Log.record(Log.INFO, getClass(), ie.getMessage());
 			}
+		}
+
+		public void interrupt() {
+			Log.record(Log.INFO, getClass(), "Interrupt thread"
+					+ Thread.currentThread().getName());
+			super.interrupt();
 		}
 	}
 }
