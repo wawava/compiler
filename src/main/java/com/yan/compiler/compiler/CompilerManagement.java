@@ -21,7 +21,7 @@ import com.yan.compiler.Log;
 import com.yan.compiler.config.Config;
 import com.yan.compiler.db.ConnManagement;
 import com.yan.compiler.db.Session;
-import com.yan.compiler.receiver.BasePackage;
+import com.yan.compiler.receiver.PackageBasePackage;
 import com.yan.compiler.receiver.MsgQueue;
 
 public class CompilerManagement {
@@ -115,7 +115,7 @@ public class CompilerManagement {
 			gson = new GsonBuilder().disableHtmlEscaping().create();
 		}
 
-		private boolean mkDbConn(BasePackage bp) {
+		private boolean mkDbConn(PackageBasePackage bp) {
 			try {
 				session = ConnManagement.factory().connect();
 				updateStatus(bp.getId(), CompilerTask.STATUS_COMPILING);
@@ -135,7 +135,7 @@ public class CompilerManagement {
 			session = null;
 		}
 
-		private CompilerTask createTask(BasePackage bp) {
+		private CompilerTask createTask(PackageBasePackage bp) {
 			CompilerTask task = null;
 			try {
 				task = new CompilerTask(bp);
@@ -152,7 +152,7 @@ public class CompilerManagement {
 			return task;
 		}
 
-		private boolean cpFile(CompilerTask task, BasePackage bp) {
+		private boolean cpFile(CompilerTask task, PackageBasePackage bp) {
 			try {
 				if (bp.isRollback()) {
 					task.restoreFile();
@@ -171,7 +171,7 @@ public class CompilerManagement {
 			}
 		}
 
-		private int compile(CompilerTask task, BasePackage bp) {
+		private int compile(CompilerTask task, PackageBasePackage bp) {
 			boolean success = false;
 			try {
 				success = task.compile();
@@ -197,7 +197,7 @@ public class CompilerManagement {
 			}
 		}
 
-		private void addLog(CompilerTask task, BasePackage bp, long lastTime,
+		private void addLog(CompilerTask task, PackageBasePackage bp, long lastTime,
 				boolean success) {
 			List<String> relativeFile = task.getRelativeFiles();
 			HashMap<String, Object> map = mkInfo(bp.getThisProcess(),
@@ -209,7 +209,7 @@ public class CompilerManagement {
 					map.getClass());
 		}
 
-		private void deploy(CompilerTask task, BasePackage bp, boolean success) {
+		private void deploy(CompilerTask task, PackageBasePackage bp, boolean success) {
 			try {
 				if (success) {
 					updateStatus(bp.getId(),
@@ -235,41 +235,42 @@ public class CompilerManagement {
 
 		private boolean running = true;
 
+		@Override
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run Compiler-Task: " + project);
 			while (running) {
 				try {
-					BasePackage bp = queue.getPackage(project);
-					if (null == bp) {
-						continue;
-					}
-
-					if (!mkDbConn(bp)) {
-						continue;
-					}
-
-					Date begin = new Date();
-					CompilerTask task = createTask(bp);
-					if (null == task) {
-						continue;
-					}
-
-					if (!cpFile(task, bp)) {
-						continue;
-					}
-
-					int res = compile(task, bp);
-					if (-1 == res) {
-						continue;
-					}
-					boolean success = (1 == res);
-
-					Date end = new Date();
-					long lastTime = end.getTime() - begin.getTime();
-					addLog(task, bp, lastTime, success);
-
-					deploy(task, bp, success);
-					freeConn();
+//					JavaBasePackage bp = queue.getPackage(project);
+//					if (null == bp) {
+//						continue;
+//					}
+//
+//					if (!mkDbConn(bp)) {
+//						continue;
+//					}
+//
+//					Date begin = new Date();
+//					CompilerTask task = createTask(bp);
+//					if (null == task) {
+//						continue;
+//					}
+//
+//					if (!cpFile(task, bp)) {
+//						continue;
+//					}
+//
+//					int res = compile(task, bp);
+//					if (-1 == res) {
+//						continue;
+//					}
+//					boolean success = (1 == res);
+//
+//					Date end = new Date();
+//					long lastTime = end.getTime() - begin.getTime();
+//					addLog(task, bp, lastTime, success);
+//
+//					deploy(task, bp, success);
+//					freeConn();
 				} catch (Exception e) {
 					Log.record(Log.ERR, Task.class.getName(), e);
 				}
@@ -357,6 +358,7 @@ public class CompilerManagement {
 			}
 		}
 
+		@Override
 		public void interrupt() {
 			Log.record(Log.INFO, getClass(), "Interrupt thread " + getName());
 			running = false;

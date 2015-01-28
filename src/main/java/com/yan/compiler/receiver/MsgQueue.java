@@ -26,11 +26,11 @@ public class MsgQueue {
 	/**
 	 * The worker package queue.
 	 */
-	private Map<String, LinkedList<BasePackage>> workQueue;
+	private Map<String, LinkedList<AbstractBasePackage>> workQueue;
 
 	private MsgQueue() {
 		queue = new LinkedList<String>();
-		workQueue = new HashMap<String, LinkedList<BasePackage>>();
+		workQueue = new HashMap<String, LinkedList<AbstractBasePackage>>();
 	}
 
 	/**
@@ -81,11 +81,11 @@ public class MsgQueue {
 	}
 
 	public void waikupOnWork() {
-		Iterator<Entry<String, LinkedList<BasePackage>>> it = workQueue
+		Iterator<Entry<String, LinkedList<AbstractBasePackage>>> it = workQueue
 				.entrySet().iterator();
 		while (it.hasNext()) {
-			Entry<String, LinkedList<BasePackage>> entry = it.next();
-			LinkedList<BasePackage> list = entry.getValue();
+			Entry<String, LinkedList<AbstractBasePackage>> entry = it.next();
+			LinkedList<AbstractBasePackage> list = entry.getValue();
 			synchronized (list) {
 				list.notifyAll();
 			}
@@ -93,17 +93,20 @@ public class MsgQueue {
 	}
 
 	/**
-	 * Add a {@linkplain BasePackage} to {@link #workQueue}. This method will
-	 * notify all threads waiting on a work queue.
+	 * Add a {@linkplain PackageBasePackage} to {@link #workQueue}. This method
+	 * will notify all threads waiting on a work queue.
 	 * 
 	 * @param bp
 	 */
-	public void addPackage(BasePackage bp) {
+	public void addPackage(AbstractBasePackage bp) {
 		String project = bp.getProject();
+		if (null == project) {
+			return;
+		}
 		Log.record(Log.DEBUG, getClass(), "Lock workQueue");
 		synchronized (workQueue) {
 			if (!workQueue.containsKey(project)) {
-				LinkedList<BasePackage> list = new LinkedList<BasePackage>();
+				LinkedList<AbstractBasePackage> list = new LinkedList<AbstractBasePackage>();
 				Log.record(Log.INFO, getClass(), "Create BasePackage List: "
 						+ project);
 				workQueue.put(project, list);
@@ -112,7 +115,7 @@ public class MsgQueue {
 			manage.createWorker(project);
 		}
 		Log.record(Log.DEBUG, getClass(), "Unlock workQueue");
-		LinkedList<BasePackage> list = workQueue.get(project);
+		LinkedList<AbstractBasePackage> list = workQueue.get(project);
 		Log.record(Log.DEBUG, getClass(), "Lock workQueue.list: " + project);
 		synchronized (list) {
 			list.addLast(bp);
@@ -125,16 +128,16 @@ public class MsgQueue {
 	}
 
 	/**
-	 * Get a {@linkplain BasePackage} from work queue. If a queue is empty, the
-	 * thread witch will wait until a package has been add to the queue.
+	 * Get a {@linkplain PackageBasePackage} from work queue. If a queue is empty,
+	 * the thread witch will wait until a package has been add to the queue.
 	 * 
 	 * @param project
 	 *            The project the thread wants to get.
-	 * @return {@linkplain BasePackage}
+	 * @return {@linkplain AbstractBasePackage}
 	 */
-	public BasePackage getPackage(String project) {
-		LinkedList<BasePackage> list;
-		BasePackage bp = null;
+	public AbstractBasePackage getPackage(String project) {
+		LinkedList<AbstractBasePackage> list;
+		AbstractBasePackage bp = null;
 		synchronized (workQueue) {
 			list = workQueue.get(project);
 		}

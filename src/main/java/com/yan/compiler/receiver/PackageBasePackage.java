@@ -4,7 +4,7 @@ import java.lang.reflect.Field;
 
 import com.yan.compiler.Log;
 
-public class BasePackage {
+public class PackageBasePackage extends AbstractBasePackage {
 
 	private int id;
 
@@ -74,10 +74,11 @@ public class BasePackage {
 		str = null;
 	}
 
+	@Override
 	public String toString() {
 		if (null == str) {
 			StringBuilder sbd = new StringBuilder(1024);
-			Class<? extends BasePackage> clazz = getClass();
+			Class<? extends PackageBasePackage> clazz = getClass();
 			Field[] fields = clazz.getDeclaredFields();
 			for (Field field : fields) {
 				sbd.append(field.getName());
@@ -85,7 +86,7 @@ public class BasePackage {
 				try {
 					sbd.append(field.get(this));
 				} catch (Exception e) {
-					Log.record(Log.ERR, BasePackage.class.getName(), e);
+					Log.record(Log.ERR, PackageBasePackage.class.getName(), e);
 				}
 				sbd.append("; ");
 			}
@@ -188,6 +189,18 @@ public class BasePackage {
 	public void setRollback(boolean isRollback) {
 		this.isRollback = isRollback;
 		str = null;
+	}
+
+	@Override
+	public boolean chkPackage() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void deliver() {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

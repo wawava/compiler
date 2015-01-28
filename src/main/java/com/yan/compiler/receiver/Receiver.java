@@ -4,19 +4,12 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.sql.SQLException;
-import java.util.LinkedList;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import com.google.gson.Gson;
 import com.yan.compiler.Log;
-import com.yan.compiler.compiler.CompilerTask;
 import com.yan.compiler.config.Config;
-import com.yan.compiler.db.ConnManagement;
-import com.yan.compiler.db.Session;
 
 public class Receiver {
 	/**
@@ -34,8 +27,6 @@ public class Receiver {
 		}
 		return obj;
 	}
-
-	private Gson gson = new Gson();
 
 	/**
 	 * The port.
@@ -70,17 +61,50 @@ public class Receiver {
 		pool = Executors.newCachedThreadPool();
 	}
 
-	/**
-	 * Start this receiver.
-	 */
-	public void start() {
-		Log.record(Log.DEBUG, getClass(), "Start Listener.");
-		listener = new ListenerTask(addr, port);
-		pool.execute(listener);
+	public void init() {
+		initListener(null);
+		initDeliver();
+	}
 
+	public void init(DatagramSocket socket) {
+		initListener(socket);
+		initDeliver();
+	}
+
+	public void initListener(DatagramSocket socket) {
+		Log.record(Log.DEBUG, getClass(), "Start Listener.");
+		if (null == socket) {
+			listener = new ListenerTask(addr, port);
+		} else {
+			listener = new ListenerTask(socket);
+		}
+
+	}
+
+	public void initDeliver() {
 		Log.record(Log.DEBUG, getClass(), "Start Deliver.");
 		deliver = new DeliverTask();
-		pool.execute(deliver);
+	}
+
+	public void start() {
+		startListener();
+		startDeliver();
+	}
+
+	/**
+	 * Start the Listener.
+	 */
+	public void startListener() {
+		if (null != listener)
+			pool.execute(listener);
+	}
+
+	/**
+	 * start the Deliver.
+	 */
+	public void startDeliver() {
+		if (null != deliver)
+			pool.execute(deliver);
 	}
 
 	/**
@@ -88,8 +112,10 @@ public class Receiver {
 	 */
 	public void stop() {
 		try {
-			deliver.interrupt();
-			listener.interrupt();
+			if (null != deliver)
+				deliver.interrupt();
+			if (null != listener)
+				listener.interrupt();
 		} catch (Exception e) {
 			Log.record(Log.ERR, getClass(), e.getMessage());
 		}
@@ -143,8 +169,16 @@ public class Receiver {
 			}
 		}
 
+		public ListenerTask(DatagramSocket socket) {
+			Log.record(Log.DEBUG, getClass(), String.format(
+					"Open socket with addr: %s, port: %s.",
+					socket.getInetAddress(), socket.getPort()));
+			this.socket = socket;
+		}
+
 		private boolean running = true;
 
+		@Override
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run ListenerTask");
 			MsgQueue queue = MsgQueue.factory();
@@ -163,6 +197,7 @@ public class Receiver {
 			}
 		}
 
+		@Override
 		public void interrupt() {
 			Log.record(Log.INFO, getClass(), "Interrupt thread " + getName());
 			running = false;
@@ -173,81 +208,61 @@ public class Receiver {
 
 	/**
 	 * A Deliver thread. This class get massage from massage queue, which as a
-	 * json string, decrypt it to {@link BasePackage}, and add packages to a
-	 * worker queue dependent on {@link BasePackage#getProject()}.
+	 * json string, decrypt it to {@link PackageBasePackage}, and add packages to a
+	 * worker queue dependent on {@link PackageBasePackage#getProject()}.
 	 * 
 	 * @author Yan
 	 * 
 	 */
 	private class DeliverTask extends Thread {
-		private Session session;
+		private MsgQueue queue;
 
 		public DeliverTask() {
 			super("DeliverTask");
-			try {
-				session = ConnManagement.factory().connect();
-			} catch (SQLException e) {
-				Log.record(Log.ERR, getClass(), e.getMessage());
-			}
+			queue = MsgQueue.factory();
 		}
 
 		private boolean running = true;
 
+		private String getMsg() {
+			return queue.getMsg();
+		}
+
+		private AbstractBasePackage parseMsg(String msg) {
+			AbstractBasePackage bp = PackageFactory.factory(msg);
+			Log.record(Log.DEBUG, getClass(),
+					"Decrypt from Json: " + bp.toString());
+			return bp;
+		}
+
+		private boolean chkStatus(AbstractBasePackage bp) {
+			return bp.chkPackage();
+		}
+
+		private void deliver(AbstractBasePackage bp) {
+			bp.deliver();
+		}
+
+		@Override
 		public void run() {
 			Log.record(Log.DEBUG, getClass(), "Run DeliverTask");
-			MsgQueue queue = MsgQueue.factory();
-
-			String selectSqlTpl = "select * from %s.svn_push where tid=%s";
-			String updateSqlTpl = "update %s.svn_push set status=%s where tid=%s";
-			String dbName = Config.factory().get("dbName");
-
+			
 			try {
 				while (running) {
 					Log.record(Log.DEBUG, getClass(),
 							"Get massage from MsgQueue");
-					String msg = queue.getMsg();
-					if (null != msg) {
-						try {
-							BasePackage bp = gson.fromJson(msg,
-									BasePackage.class);
-							Log.record(Log.DEBUG, getClass(),
-									"Decrypt from Json: " + bp.toString());
-							String sql = String.format(selectSqlTpl, dbName,
-									bp.getId());
-							if (!session.query(sql)) {
-								throw new Exception(
-										String.format(
-												"Can not find push record from svn_push using tid=%s",
-												bp.getId()));
-							}
-							LinkedList<Map<String, Object>> result = session
-									.getResult();
-							Map<String, Object> map = result.getFirst();
-							Integer status = Integer.valueOf(String.valueOf(map
-									.get("status")));
-							if (!CompilerTask.STATUS_PRE_COMPILING
-									.equals(status)) {
-								Log.record(
-										Log.INFO,
-										getClass(),
-										String.format(
-												"Push status [%s] is not pre_compiling",
-												status));
-								continue;
-							}
-							sql = String.format(updateSqlTpl, dbName,
-									CompilerTask.STATUS_COMPILER_RECEIVED,
-									bp.getId());
-							if (!session.query(sql)) {
-								throw new Exception(
-										String.format(
-												"Can not update push record status to received using tid=%s",
-												bp.getId()));
-							}
-							queue.addPackage(bp);
-						} catch (Exception e) {
-							Log.record(Log.ERR, DeliverTask.class.getName(), e);
+					String msg = getMsg();
+					if (null == msg) {
+						continue;
+					}
+					try {
+						AbstractBasePackage bp = parseMsg(msg);
+						if (!chkStatus(bp)) {
+							continue;
 						}
+						deliver(bp);
+					} catch (Exception e) {
+						Log.record(Log.ERR, DeliverTask.class.getName(), e);
 					}
 				}
 			} catch (Exception ie) {
@@ -255,6 +270,7 @@ public class Receiver {
 			}
 		}
 
+		@Override
 		public void interrupt() {
 			Log.record(Log.INFO, getClass(), "Interrupt thread " + getName());
 			running = false;

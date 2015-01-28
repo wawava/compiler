@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -46,6 +47,10 @@ public class Session {
 		return result;
 	}
 
+	public Map<String, Object> find() {
+		return result.getFirst();
+	}
+
 	void setStatement(Statement statement) {
 		this.statement = statement;
 	}
@@ -64,7 +69,15 @@ public class Session {
 				Map<String, Object> map = new HashMap<String, Object>();
 				for (int i = 1; i <= len; i++) {
 					String colName = metaData.getColumnLabel(i);
-					Object val = resultSet.getObject(colName);
+					Object val;
+					switch (metaData.getColumnType(i)) {
+					case Types.BIT:
+						val = resultSet.getInt(i);
+						break;
+					default:
+						val = resultSet.getObject(i);
+						break;
+					}
 					map.put(colName, val);
 				}
 				list.addLast(map);

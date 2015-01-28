@@ -1,12 +1,16 @@
 package com.yan.compiler.config;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
@@ -19,6 +23,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.yan.compiler.Log;
 
 public class Config {
@@ -76,15 +84,30 @@ public class Config {
 	private String cacheDir;
 	private String backupDir;
 	private Boolean sshTunnel = false;
+	private JsonObject serverConfig;
+	private JsonObject projectConfig;
 
 	private String[] envp;
 
+	private Boolean debug = false;
+
+	private Gson gson = new Gson();
+
+	/**
+	 * Set {@code val} to the field {@code name}
+	 * 
+	 * @param name
+	 *            The name of the field. Contain the char "." if wants to
+	 *            indicate a key in a map.
+	 * @param val
+	 *            The value of the field or the value of a key in an map.
+	 */
 	@SuppressWarnings("unchecked")
-	private void assign(Class<? extends Config> clazz, String name, Object val) {
+	private void assign(String name, Object val) {
 		String[] names = name.split("\\.");
 		try {
 			String _name = names[0];
-			Field field = clazz.getDeclaredField(_name);
+			Field field = getClass().getDeclaredField(_name);
 			Class<?> type = field.getType();
 			try {
 				String value;
@@ -118,16 +141,103 @@ public class Config {
 		}
 	}
 
+	/**
+	 * A private constructor
+	 * 
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws NoSuchAlgorithmException
+	 * @throws IOException
+	 */
 	private Config() throws IllegalArgumentException, IllegalAccessException,
 			NoSuchAlgorithmException, IOException {
 		this(false);
 	}
 
+	/**
+	 * A private constructor
+	 * 
+	 * @param isDebug
+	 *            true if working in debug mode.
+	 * @throws IOException
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 * @throws NoSuchAlgorithmException
+	 */
 	private Config(boolean isDebug) throws IOException,
 			IllegalArgumentException, IllegalAccessException,
 			NoSuchAlgorithmException {
+		debug = isDebug;
+		assignField();
+		initJvmEnv();
+		initServerConfig();
+		initProjectConfig();
+	}
+
+	/**
+	 * Read the config file and assign to config instance.
+	 * 
+	 * @throws IOException
+	 */
+	private void assignField() throws IOException {
+		Iterator<Entry<Object, Object>> it = getProperties().entrySet()
+				.iterator();
+		while (it.hasNext()) {
+			Entry<Object, Object> entry = it.next();
+			String name = (String) entry.getKey();
+			Object val = entry.getValue();
+			Log.record(
+					Log.DEBUG,
+					Config.class,
+					String.format("Read config: [%s = %s]", name,
+							val.toString()));
+			assign(name, val);
+		}
+	}
+
+	private void initServerConfig() {
+		Path configPath = Paths.get(USER_DIR, CFG_FILE_PARENT_DIR_NAME,
+				"server_config.json");
+		serverConfig = readJson(configPath);
+	}
+
+	private void initProjectConfig() {
+		Path configPath = Paths.get(USER_DIR, CFG_FILE_PARENT_DIR_NAME,
+				"project_config.json");
+		projectConfig = readJson(configPath);
+	}
+
+	private JsonObject readJson(Path path) {
+		try {
+			BufferedReader br = new BufferedReader(
+					new FileReader(path.toFile()));
+			StringBuilder sbd = new StringBuilder();
+			String str;
+			while (null != (str = br.readLine())) {
+				sbd.append(str);
+			}
+			br.close();
+			String json = sbd.toString();
+
+			JsonElement jElement = new JsonParser().parse(json);
+			return jElement.getAsJsonObject();
+		} catch (FileNotFoundException e) {
+			Log.record(Log.ERR, getClass(), e);
+		} catch (IOException e) {
+			Log.record(Log.ERR, getClass(), e);
+		}
+		return null;
+	}
+
+	/**
+	 * Read config field in a {@link Properties} instance.
+	 * 
+	 * @return A Properties instance contain config.
+	 * @throws IOException
+	 */
+	private Properties getProperties() throws IOException {
 		String fileName;
-		if (isDebug) {
+		if (debug) {
 			fileName = CFG_FILE_NAME + ".debug.properties";
 		} else {
 			fileName = CFG_FILE_NAME + ".properties";
@@ -142,21 +252,15 @@ public class Config {
 		Properties prop = new Properties();
 		InputStream in = new BufferedInputStream(new FileInputStream(file));
 		prop.load(in);
-		Class<? extends Config> clazz = getClass();
+		return prop;
+	}
 
-		Iterator<Entry<Object, Object>> it = prop.entrySet().iterator();
-		while (it.hasNext()) {
-			Entry<Object, Object> entry = it.next();
-			String name = (String) entry.getKey();
-			Object val = entry.getValue();
-			Log.record(
-					Log.DEBUG,
-					Config.class,
-					String.format("Read config: [%s = %s]", name,
-							val.toString()));
-			assign(clazz, name, val);
-		}
-
+	/**
+	 * Read the env param
+	 * 
+	 * @throws NoSuchAlgorithmException
+	 */
+	private void initJvmEnv() throws NoSuchAlgorithmException {
 		md = MessageDigest.getInstance("MD5");
 
 		Map<String, String> env = System.getenv();
@@ -177,12 +281,26 @@ public class Config {
 		envp = envList.toArray(new String[0]);
 	}
 
+	/**
+	 * Get Compile directive.
+	 * 
+	 * @param project
+	 * @param env
+	 * @return
+	 */
 	public String getCompileDir(String project, String env) {
 		project = projects.get(project);
 		Path path = Paths.get(compileDir, project, env);
 		return path.toAbsolutePath().normalize().toString();
 	}
 
+	/**
+	 * Get backup directive.
+	 * 
+	 * @param name
+	 * @param env
+	 * @return
+	 */
 	public String getBackupDir(String name, String env) {
 		StringBuilder sbd = md5(name);
 		Path path = Paths.get(backupDir, env, sbd.substring(0, 2),
@@ -190,13 +308,60 @@ public class Config {
 		return path.toAbsolutePath().normalize().toString();
 	}
 
+	/**
+	 * Get backup directive.
+	 * 
+	 * @param id
+	 * @param env
+	 * @return
+	 */
+	public String getBackupDir(Integer id, Env env) {
+		return getBackupDir(String.valueOf(id), env.toString());
+	}
+
+	/**
+	 * Get cache directive.
+	 * 
+	 * @param name
+	 * @return
+	 */
 	public String getCacheDir(String name) {
 		StringBuilder sbd = md5(name);
 		Path path = Paths.get(cacheDir, sbd.substring(0, 2), sbd.substring(2));
 		return path.toAbsolutePath().normalize().toString();
 	}
 
-	private StringBuilder md5(String name) {
+	/**
+	 * Get cache directive.
+	 * 
+	 * @param id
+	 * @return
+	 */
+	public String getCacheDir(Integer id) {
+		return getCacheDir(String.valueOf(id));
+	}
+
+	/**
+	 * Get a template dir.
+	 * 
+	 * @param id
+	 * @return
+	 */
+	public Path getBackupTplPath(Integer id) {
+		String prefix = md5(id.toString()).toString();
+		try {
+			Path tmp = Files.createTempDirectory(prefix);
+			return tmp.toAbsolutePath().normalize();
+		} catch (IOException e) {
+			Log.record(Log.ERR, getClass(), e);
+			return null;
+		}
+	}
+
+	/**
+	 * 
+	 */
+	public StringBuilder md5(String name) {
 		md.update(name.getBytes());
 		byte[] digest = md.digest();
 		StringBuilder sb = new StringBuilder();
@@ -264,7 +429,35 @@ public class Config {
 		return sshTunnel;
 	}
 
+	public Boolean isDebug() {
+		return debug;
+	}
+
 	public String[] getEnvp() {
 		return envp;
+	}
+
+	/**
+	 * 
+	 * @param project
+	 * @param env
+	 * @return
+	 */
+	public DeployConfig getDeployConfig(String project, Env env) {
+		JsonObject cfg = serverConfig.getAsJsonObject(project);
+		JsonObject val = cfg.getAsJsonObject(env.toString());
+
+		DeployConfig dc = gson.fromJson(val, DeployConfig.class);
+		return dc;
+	}
+
+	/**
+	 * 
+	 * @param project
+	 * @return
+	 */
+	public String getProjectConfig(String project) {
+		JsonObject cfg = projectConfig.getAsJsonObject(project);
+		return cfg.toString();
 	}
 }

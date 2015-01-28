@@ -29,6 +29,11 @@ public class Log {
 		record(level, clazz.getName(), msg);
 	}
 
+	public static void record(String level, Class<? extends Object> clazz,
+			Exception e) {
+		record(level, clazz.getName(), e.getMessage());
+	}
+
 	public static void record(String level, String key, String msg) {
 		if (isDebug || level.equals(ERR)) {
 			String time = format.format(new Date());

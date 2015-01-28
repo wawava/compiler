@@ -21,7 +21,7 @@ import org.apache.commons.lang.StringEscapeUtils;
 
 import com.yan.compiler.Log;
 import com.yan.compiler.config.Config;
-import com.yan.compiler.receiver.BasePackage;
+import com.yan.compiler.receiver.PackageBasePackage;
 
 public class CompilerTask {
 
@@ -50,7 +50,7 @@ public class CompilerTask {
 	private String[] cleanList;
 	private String[] packageList;
 
-	public CompilerTask(BasePackage bp) {
+	public CompilerTask(PackageBasePackage bp) {
 		Config config = Config.factory();
 		project = bp.getProject();
 		env = bp.getEnv();
