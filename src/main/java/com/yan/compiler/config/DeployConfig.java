@@ -13,4 +13,8 @@ public class DeployConfig implements Cloneable {
 		obj.tmp = this.tmp;
 		return obj;
 	}
+
+	public void updateTmp(String hash) {
+		tmp = String.format(tmp, hash.substring(0, 2), hash.substring(2));
+	}
 }

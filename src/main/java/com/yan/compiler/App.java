@@ -1,7 +1,9 @@
 package com.yan.compiler;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -9,7 +11,10 @@ import java.util.LinkedList;
 import java.util.List;
 
 import com.yan.compiler.compiler.ShutdownTask;
+import com.yan.compiler.compiler.TransTask;
 import com.yan.compiler.config.Config;
+import com.yan.compiler.config.Env;
+import com.yan.compiler.receiver.Action;
 import com.yan.compiler.receiver.Receiver;
 
 /**
@@ -39,8 +44,8 @@ public class App {
 		Log.init(isDebug);
 		Config.factory(isDebug);
 		Runtime.getRuntime().addShutdownHook(new ShutdownTask());
-		Receiver r = Receiver.factory();
-		r.start();
+		// Receiver r = Receiver.factory();
+		// r.start();
 
 		// Session session = ConnManagement.factory().connect();
 		// session.query("Select * from svn_test_group order by id desc limit 3");
@@ -50,6 +55,35 @@ public class App {
 		// Map<String, Object> map = it.next();
 		// System.out.println(map);
 		// }
+
+		TransTask trans = new TransTask(990, Env.BETA, Action.PUSH, 6);
+		trans.run();
+
+		// String[] cmd = {
+		// "ssh",
+		// "10.202.241.19",
+		// "find /tmp/4fac9ba115140ac4f1c22da82aa0bc7f/htdocs/www -type f -print | xargs md5sum"
+		// };
+		// //
+		// "ssh 10.202.241.19 mkdir -p -m 777 /tmp/4fac9ba115140ac4f1c22da82aa0bc7f/htdocs/pmadmin 2>&1";
+		// Runtime runtime = Runtime.getRuntime();
+		// Process process = runtime.exec(cmd);
+		// BufferedReader br = new BufferedReader(new InputStreamReader(
+		// process.getInputStream()));
+		// LinkedList<String> output = new LinkedList<String>();
+		//
+		// String str;
+		// while (null != (str = br.readLine())) {
+		// output.add(str);
+		// }
+		// br.close();
+		// br = new BufferedReader(new
+		// InputStreamReader(process.getErrorStream()));
+		// while (null != (str = br.readLine())) {
+		// output.addLast(str);
+		// }
+		// br.close();
+		// System.out.println(output);
 	}
 
 	public static List<String> scanDir(String dir) {
@@ -60,11 +94,8 @@ public class App {
 		File file = new File(dir);
 		List<String> list = new LinkedList<String>();
 		_scanDir(file, list, recursive);
-		Log.record(
-				Log.DEBUG,
-				App.class,
-				String.format("Scan dir: [%s], result: %s", dir,
-						list.toString()));
+		Log.record(Log.DEBUG, App.class,
+				String.format("Scan dir: [%s], result: %s", dir, list.size()));
 		return list;
 	}
 

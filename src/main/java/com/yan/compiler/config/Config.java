@@ -88,6 +88,7 @@ public class Config {
 	private JsonObject projectConfig;
 
 	private String[] envp;
+	private Map<String, String> envm;
 
 	private Boolean debug = false;
 
@@ -263,7 +264,7 @@ public class Config {
 	private void initJvmEnv() throws NoSuchAlgorithmException {
 		md = MessageDigest.getInstance("MD5");
 
-		Map<String, String> env = System.getenv();
+		Map<String, String> env = envm = System.getenv();
 		String jdkHome = env.get("JDK_HOME");
 		List<String> envList = new LinkedList<String>();
 		for (Entry<String, String> entry : env.entrySet()) {
@@ -316,7 +317,7 @@ public class Config {
 	 * @return
 	 */
 	public String getBackupDir(Integer id, Env env) {
-		return getBackupDir(String.valueOf(id), env.toString());
+		return getBackupDir(String.valueOf(id), Env.getString(env));
 	}
 
 	/**
@@ -437,6 +438,10 @@ public class Config {
 		return envp;
 	}
 
+	public Map<String, String> getEnvm() {
+		return envm;
+	}
+
 	/**
 	 * 
 	 * @param project
@@ -445,7 +450,7 @@ public class Config {
 	 */
 	public DeployConfig getDeployConfig(String project, Env env) {
 		JsonObject cfg = serverConfig.getAsJsonObject(project);
-		JsonObject val = cfg.getAsJsonObject(env.toString());
+		JsonObject val = cfg.getAsJsonObject(Env.getString(env));
 
 		DeployConfig dc = gson.fromJson(val, DeployConfig.class);
 		return dc;

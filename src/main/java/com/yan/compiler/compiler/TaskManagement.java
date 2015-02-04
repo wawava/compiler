@@ -26,12 +26,18 @@ public class TaskManagement {
 	private ExecutorService pool;
 
 	/**
+	 * The ssh task pool
+	 */
+	private ExecutorService sshTaskPool;
+
+	/**
 	 * 
 	 */
 	private Set<Integer> set;
 
 	private TaskManagement() {
 		pool = Executors.newCachedThreadPool();
+		sshTaskPool = Executors.newFixedThreadPool(10);
 		set = new HashSet<Integer>();
 	}
 
@@ -71,6 +77,12 @@ public class TaskManagement {
 		}
 	}
 
+	public void clear() {
+		synchronized (set) {
+			set.clear();
+		}
+	}
+
 	/**
 	 * Create a {@link Task}
 	 * 
@@ -97,7 +109,7 @@ public class TaskManagement {
 	 * @return
 	 */
 	public <V> Future<V> submit(Callable<V> task) {
-		return pool.submit(task);
+		return sshTaskPool.submit(task);
 	}
 
 }

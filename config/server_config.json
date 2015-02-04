@@ -3,476 +3,476 @@
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/www",
-      "tmp": "/tmp/%s/htdocs/www"
+      "tmp": "/tmp/%s/%s/htdocs/www"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_www",
-      "tmp": "/tmp/%s/htdocs/testing_www"
+      "tmp": "/tmp/%s/%s/htdocs/testing_www"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/www",
-      "tmp": "/tmp/%s/htdocs/www"
+      "tmp": "/tmp/%s/%s/htdocs/www"
     }
   },
   "view/shop": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/shop",
-      "tmp": "/tmp/%s/htdocs/shop"
+      "tmp": "/tmp/%s/%s/htdocs/shop"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_shop",
-      "tmp": "/tmp/%s/htdocs/testing_shop"
+      "tmp": "/tmp/%s/%s/htdocs/testing_shop"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/shop",
-      "tmp": "/tmp/%s/htdocs/shop"
+      "tmp": "/tmp/%s/%s/htdocs/shop"
     }
   },
   "view/gw": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/gw",
-      "tmp": "/tmp/%s/htdocs/gw"
+      "tmp": "/tmp/%s/%s/htdocs/gw"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_gw",
-      "tmp": "/tmp/%s/htdocs/testing_gw"
+      "tmp": "/tmp/%s/%s/htdocs/testing_gw"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/gw",
-      "tmp": "/tmp/%s/htdocs/gw"
+      "tmp": "/tmp/%s/%s/htdocs/gw"
     }
   },
   "view/vendor": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/vendor",
-      "tmp": "/tmp/%s/htdocs/vendor"
+      "tmp": "/tmp/%s/%s/htdocs/vendor"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_vendor",
-      "tmp": "/tmp/%s/htdocs/testing_vendor"
+      "tmp": "/tmp/%s/%s/htdocs/testing_vendor"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/vendor",
-      "tmp": "/tmp/%s/htdocs/vendor"
+      "tmp": "/tmp/%s/%s/htdocs/vendor"
     }
   },
   "view/member": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/member",
-      "tmp": "/tmp/%s/htdocs/member"
+      "tmp": "/tmp/%s/%s/htdocs/member"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_member",
-      "tmp": "/tmp/%s/htdocs/testing_member"
+      "tmp": "/tmp/%s/%s/htdocs/testing_member"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/member",
-      "tmp": "/tmp/%s/htdocs/member"
+      "tmp": "/tmp/%s/%s/htdocs/member"
     }
   },
   "view/pmadmin": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/pmadmin",
-      "tmp": "/tmp/%s/htdocs/pmadmin"
+      "tmp": "/tmp/%s/%s/htdocs/pmadmin"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_pmadmin",
-      "tmp": "/tmp/%s/htdocs/testing_pmadmin"
+      "tmp": "/tmp/%s/%s/htdocs/testing_pmadmin"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/pmadmin",
-      "tmp": "/tmp/%s/htdocs/pmadmin"
+      "tmp": "/tmp/%s/%s/htdocs/pmadmin"
     }
   },
   "view/search": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/search",
-      "tmp": "/tmp/%s/htdocs/search"
+      "tmp": "/tmp/%s/%s/htdocs/search"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_search",
-      "tmp": "/tmp/%s/htdocs/testing_search"
+      "tmp": "/tmp/%s/%s/htdocs/testing_search"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/search",
-      "tmp": "/tmp/%s/htdocs/search"
+      "tmp": "/tmp/%s/%s/htdocs/search"
     }
   },
   "view_c": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/view_c",
-      "tmp": "/tmp/%s/view_c"
+      "tmp": "/tmp/%s/%s/view_c"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/testing_view_c",
-      "tmp": "/tmp/%s/testing_view_c"
+      "tmp": "/tmp/%s/%s/testing_view_c"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/view_c",
-      "tmp": "/tmp/%s/view_c"
+      "tmp": "/tmp/%s/%s/view_c"
     }
   },
   "lang": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/lang",
-      "tmp": "/tmp/%s/lang"
+      "tmp": "/tmp/%s/%s/lang"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/lang",
-      "tmp": "/tmp/%s/lang"
+      "tmp": "/tmp/%s/%s/lang"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/lang",
-      "tmp": "/tmp/%s/lang"
+      "tmp": "/tmp/%s/%s/lang"
     }
   },
   "api/pmadmin-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/pmadmin-api",
-      "tmp": "/tmp/%s/htdocs/pmadmin-api"
+      "tmp": "/tmp/%s/%s/htdocs/pmadmin-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_pmadmin-api",
-      "tmp": "/tmp/%s/htdocs/testing_pmadmin-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_pmadmin-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/pmadmin-api",
-      "tmp": "/tmp/%s/htdocs/pmadmin-api"
+      "tmp": "/tmp/%s/%s/htdocs/pmadmin-api"
     }
   },
   "api/shop-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/shop-api",
-      "tmp": "/tmp/%s/htdocs/shop-api"
+      "tmp": "/tmp/%s/%s/htdocs/shop-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_shop-api",
-      "tmp": "/tmp/%s/htdocs/testing_shop-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_shop-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/shop-api",
-      "tmp": "/tmp/%s/htdocs/shop-api"
+      "tmp": "/tmp/%s/%s/htdocs/shop-api"
     }
   },
   "api/member-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/member-api",
-      "tmp": "/tmp/%s/htdocs/member-api"
+      "tmp": "/tmp/%s/%s/htdocs/member-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_member-api",
-      "tmp": "/tmp/%s/htdocs/testing_member-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_member-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/member-api",
-      "tmp": "/tmp/%s/htdocs/member-api"
+      "tmp": "/tmp/%s/%s/htdocs/member-api"
     }
   },
   "api/www-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/www-api",
-      "tmp": "/tmp/%s/htdocs/www-api"
+      "tmp": "/tmp/%s/%s/htdocs/www-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_www-api",
-      "tmp": "/tmp/%s/htdocs/testing_www-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_www-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/www-api",
-      "tmp": "/tmp/%s/htdocs/www-api"
+      "tmp": "/tmp/%s/%s/htdocs/www-api"
     }
   },
   "api/gw-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/gw-api",
-      "tmp": "/tmp/%s/htdocs/gw-api"
+      "tmp": "/tmp/%s/%s/htdocs/gw-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_gw-api",
-      "tmp": "/tmp/%s/htdocs/testing_gw-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_gw-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/gw-api",
-      "tmp": "/tmp/%s/htdocs/gw-api"
+      "tmp": "/tmp/%s/%s/htdocs/gw-api"
     }
   },
   "api/search-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/search-api",
-      "tmp": "/tmp/%s/htdocs/search-api"
+      "tmp": "/tmp/%s/%s/htdocs/search-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_search-api",
-      "tmp": "/tmp/%s/htdocs/testing_search-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_search-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/search-api",
-      "tmp": "/tmp/%s/htdocs/search-api"
+      "tmp": "/tmp/%s/%s/htdocs/search-api"
     }
   },
   "api/gw2-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/gw2-api",
-      "tmp": "/tmp/%s/htdocs/gw2-api"
+      "tmp": "/tmp/%s/%s/htdocs/gw2-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_gw2-api",
-      "tmp": "/tmp/%s/htdocs/testing_gw2-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_gw2-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/gw2-api",
-      "tmp": "/tmp/%s/htdocs/gw2-api"
+      "tmp": "/tmp/%s/%s/htdocs/gw2-api"
     }
   },
   "acom": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/api_common",
-      "tmp": "/tmp/%s/api_common"
+      "tmp": "/tmp/%s/%s/api_common"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/testing_api_common",
-      "tmp": "/tmp/%s/testing_api_common"
+      "tmp": "/tmp/%s/%s/testing_api_common"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/api_common",
-      "tmp": "/tmp/%s/api_common"
+      "tmp": "/tmp/%s/%s/api_common"
     }
   },
   "vcom": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/view_common",
-      "tmp": "/tmp/%s/view_common"
+      "tmp": "/tmp/%s/%s/view_common"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/testing_view_common",
-      "tmp": "/tmp/%s/testing_view_common"
+      "tmp": "/tmp/%s/%s/testing_view_common"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/view_common",
-      "tmp": "/tmp/%s/view_common"
+      "tmp": "/tmp/%s/%s/view_common"
     }
   },
   "job/web-job": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/web-job",
-      "tmp": "/tmp/%s/htdocs/web-job"
+      "tmp": "/tmp/%s/%s/htdocs/web-job"
     },
     "preview": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/web-job",
-      "tmp": "/tmp/%s/htdocs/web-job"
+      "tmp": "/tmp/%s/%s/htdocs/web-job"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/web-job",
-      "tmp": "/tmp/%s/htdocs/web-job"
+      "tmp": "/tmp/%s/%s/htdocs/web-job"
     }
   },
   "api/email-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/email-api",
-      "tmp": "/tmp/%s/htdocs/email-api"
+      "tmp": "/tmp/%s/%s/htdocs/email-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_email-api",
-      "tmp": "/tmp/%s/htdocs/testing_email-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_email-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/email-api",
-      "tmp": "/tmp/%s/htdocs/email-api"
+      "tmp": "/tmp/%s/%s/htdocs/email-api"
     }
   },
   "api/pos-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/pos-api",
-      "tmp": "/tmp/%s/htdocs/pos-api"
+      "tmp": "/tmp/%s/%s/htdocs/pos-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_pos-api",
-      "tmp": "/tmp/%s/htdocs/testing_pos-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_pos-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/pos-api",
-      "tmp": "/tmp/%s/htdocs/pos-api"
+      "tmp": "/tmp/%s/%s/htdocs/pos-api"
     }
   },
   "api/snapshot-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/snapshot-api",
-      "tmp": "/tmp/%s/htdocs/snapshot-api"
+      "tmp": "/tmp/%s/%s/htdocs/snapshot-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_snapshot-api",
-      "tmp": "/tmp/%s/htdocs/testing_snapshot-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_snapshot-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/snapshot-api",
-      "tmp": "/tmp/%s/htdocs/snapshot-api"
+      "tmp": "/tmp/%s/%s/htdocs/snapshot-api"
     }
   },
   "api/vendor-api": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/vendor-api",
-      "tmp": "/tmp/%s/htdocs/vendor-api"
+      "tmp": "/tmp/%s/%s/htdocs/vendor-api"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_vendor-api",
-      "tmp": "/tmp/%s/htdocs/testing_vendor-api"
+      "tmp": "/tmp/%s/%s/htdocs/testing_vendor-api"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/vendor-api",
-      "tmp": "/tmp/%s/htdocs/vendor-api"
+      "tmp": "/tmp/%s/%s/htdocs/vendor-api"
     }
   },
   "order_monitor": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/beta_orderview",
-      "tmp": "/tmp/%s/htdocs/beta_orderview"
+      "tmp": "/tmp/%s/%s/htdocs/beta_orderview"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_ordermonitor",
-      "tmp": "/tmp/%s/htdocs/testing_ordermonitor"
+      "tmp": "/tmp/%s/%s/htdocs/testing_ordermonitor"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/ordermonitor",
-      "tmp": "/tmp/%s/htdocs/ordermonitor"
+      "tmp": "/tmp/%s/%s/htdocs/ordermonitor"
     }
   },
   "job/pos-job": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/pos-job",
-      "tmp": "/tmp/%s/htdocs/pos-job"
+      "tmp": "/tmp/%s/%s/htdocs/pos-job"
     },
     "preview": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/pos-job",
-      "tmp": "/tmp/%s/htdocs/pos-job"
+      "tmp": "/tmp/%s/%s/htdocs/pos-job"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/pos-job",
-      "tmp": "/tmp/%s/htdocs/pos-job"
+      "tmp": "/tmp/%s/%s/htdocs/pos-job"
     }
   },
   "outside-out": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/outside-out",
-      "tmp": "/tmp/%s/htdocs/outside-out"
+      "tmp": "/tmp/%s/%s/htdocs/outside-out"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/outside-out",
-      "tmp": "/tmp/%s/htdocs/outside-out"
+      "tmp": "/tmp/%s/%s/htdocs/outside-out"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/outside-out",
-      "tmp": "/tmp/%s/htdocs/outside-out"
+      "tmp": "/tmp/%s/%s/htdocs/outside-out"
     }
   },
   "app": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/www/app",
-      "tmp": "/tmp/%s/htdocs/www/app"
+      "tmp": "/tmp/%s/%s/htdocs/www/app"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/testing_app",
-      "tmp": "/tmp/%s/htdocs/testing_app"
+      "tmp": "/tmp/%s/%s/htdocs/testing_app"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/app",
-      "tmp": "/tmp/%s/htdocs/app"
+      "tmp": "/tmp/%s/%s/htdocs/app"
     }
   },
   "touch": {
     "beta": {
       "host": "10.202.241.19",
       "path": "/home/webdata/htdocs/salt/beta/webserver/m.feiniu.com",
-      "tmp": "/tmp/%s/htdocs/salt/beta/webserver/m.feiniu.com"
+      "tmp": "/tmp/%s/%s/htdocs/salt/beta/webserver/m.feiniu.com"
     },
     "preview": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/salt/preview/webserver/m.feiniu.com",
-      "tmp": "/tmp/%s/htdocs/salt/preview/webserver/m.feiniu.com"
+      "tmp": "/tmp/%s/%s/htdocs/salt/preview/webserver/m.feiniu.com"
     },
     "online": {
       "host": "10.201.193.1",
       "path": "/home/webdata/htdocs/salt/online/webserver/m.feiniu.com",
-      "tmp": "/tmp/%s/htdocs/salt/online/webserver/m.feiniu.com"
+      "tmp": "/tmp/%s/%s/htdocs/salt/online/webserver/m.feiniu.com"
     }
   }
 }

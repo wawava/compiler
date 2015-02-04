@@ -1,7 +1,5 @@
 package com.yan.compiler.db;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -28,18 +26,15 @@ public class ConnManagement {
 		return obj;
 	}
 
-	private static Integer idGen = 0;
-
 	private String dbAddr;
 	private Integer dbPort;
 	private String dbUsername;
 	private String dbPassword;
 	private String dbName;
+	private String dbUrl;
 
-	private LinkedList<Session> idle;
-	private Map<String, Session> busy;
-
-	private Connection connect = null;
+	private LinkedList<MyConnection> normal;
+	private Map<Integer, MyConnection> transaction;
 
 	private ConnManagement() {
 		Config config = Config.factory();
@@ -49,8 +44,10 @@ public class ConnManagement {
 		dbPassword = config.get("dbPassword");
 		dbName = config.get("dbName");
 
-		idle = new LinkedList<Session>();
-		busy = new HashMap<String, Session>();
+		dbUrl = String.format(connTpl, dbAddr, dbPort, dbName);
+
+		normal = new LinkedList<MyConnection>();
+		transaction = new HashMap<Integer, MyConnection>();
 
 		Boolean sshTunnel = config.usingSSHTunnel();
 		if (sshTunnel) {
@@ -108,51 +105,127 @@ public class ConnManagement {
 	}
 
 	public Session connect() throws SQLException {
-		if (null == connect || connect.isClosed()) {
-			String str = String.format(connTpl, dbAddr, dbPort, dbName);
-			Log.record(Log.DEBUG, getClass(),
-					"Connect to database with Connection-String: " + str);
-			// setup the connection with the DB.
-			connect = DriverManager.getConnection(str, dbUsername, dbPassword);
-		}
-
-		Session session;
-		Log.record(Log.DEBUG, getClass(), "Lock idle session queue.");
-		synchronized (idGen) {
-			if (idle.size() > 0) {
-				session = idle.removeFirst();
-				session.setStatement(connect.createStatement());
-			} else {
-				session = new Session(String.valueOf(idGen++),
-						connect.createStatement());
-			}
-			busy.put(session.getId(), session);
-		}
-		Log.record(Log.DEBUG, getClass(), "Unlock idle session queue.");
-		return session;
+		Log.record(Log.DEBUG, getClass(), "Lock ConnManagement");
+		MyConnection conn = getConn();
+		return conn.connect();
 	}
 
-	void free(String id) {
-		synchronized (idGen) {
-			Log.record(Log.DEBUG, getClass(), "Free Session: " + id);
-			Session session = busy.get(id);
-			if (null != session) {
-				idle.addLast(session);
+	public Session connect(Boolean trans) throws SQLException {
+		if (true == trans) {
+			return connect();
+		}
+		Log.record(Log.DEBUG, getClass(), "Lock ConnManagement");
+
+		MyConnection conn = getConn(trans);
+		return conn.connect();
+	}
+
+	private MyConnection getConn() throws SQLException {
+		MyConnection conn = null;
+		synchronized (this) {
+			Iterator<MyConnection> it = normal.iterator();
+			while (it.hasNext()) {
+				MyConnection _conn = it.next();
+				if (!_conn.isBusy()) {
+					conn = _conn;
+					break;
+				}
+			}
+			if (null == conn) {
+				conn = MyConnection
+						.getConnection(dbUrl, dbUsername, dbPassword);
+				normal.addLast(conn);
+			}
+		}
+		return conn;
+	}
+
+	private MyConnection getConn(Boolean trans) throws SQLException {
+		if (true == trans) {
+			return getConn();
+		}
+		MyConnection conn = null;
+		synchronized (this) {
+			Iterator<MyConnection> it = normal.iterator();
+			while (it.hasNext()) {
+				MyConnection _conn = it.next();
+				if (0 == _conn.size()) {
+					conn = _conn;
+					it.remove();
+					break;
+				}
+			}
+			if (null == conn) {
+				conn = MyConnection
+						.getConnection(dbUrl, dbUsername, dbPassword);
+				conn.setAutoCommit(false);
+			}
+			transaction.put(conn.getId(), conn);
+		}
+		return conn;
+	}
+
+	/**
+	 * Free transaction
+	 * 
+	 * @param id
+	 */
+	public void free(Integer id) {
+		synchronized (this) {
+			Log.record(Log.DEBUG, getClass(), "Commit Connection: " + id);
+			MyConnection conn = transaction.get(id);
+			if (null != conn) {
+				try {
+					conn.rollback();
+					conn.freeAll();
+					conn.setAutoCommit(true);
+				} catch (Exception e) {
+					Log.record(Log.ERR, getClass(), e);
+				}
+				transaction.remove(id);
+				normal.addLast(conn);
 			}
 		}
 	}
 
 	public void showdown() {
-		Iterator<Entry<String, Session>> it = busy.entrySet().iterator();
-		while (it.hasNext()) {
-			Entry<String, Session> item = it.next();
-			Session session = item.getValue();
-			try {
-				session.showdown();
-			} catch (SQLException e) {
-				Log.record(Log.ERR, getClass(), e.getMessage());
+		synchronized (this) {
+			Iterator<Entry<Integer, MyConnection>> it = transaction.entrySet()
+					.iterator();
+			while (it.hasNext()) {
+				Entry<Integer, MyConnection> item = it.next();
+				MyConnection conn = item.getValue();
+				try {
+					conn.close();
+				} catch (Exception e) {
+					Log.record(Log.ERR, getClass(), e);
+				}
 			}
-			idle.add(session);
 		}
+		synchronized (this) {
+			Iterator<MyConnection> it = normal.iterator();
+			while (it.hasNext()) {
+				MyConnection conn = it.next();
+				try {
+					conn.close();
+				} catch (Exception e) {
+					Log.record(Log.ERR, getClass(), e);
+				}
+			}
+		}
+	}
+
+	public MyConnection getConnection(Integer id) {
+		if (transaction.containsKey(id)) {
+			return transaction.get(id);
+		}
+		Iterator<MyConnection> it = normal.iterator();
+		while (it.hasNext()) {
+			MyConnection conn = it.next();
+			if (conn.getId() == id) {
+				return conn;
+			}
+		}
+		return null;
 	}
 }

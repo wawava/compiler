@@ -9,6 +9,7 @@ public class FileBasePackage extends AbstractBasePackage {
 	private Action action;
 	private Integer groupId;
 	private Env env;
+	private Integer uid;
 
 	public Action getAction() {
 		return action;
@@ -57,7 +58,22 @@ public class FileBasePackage extends AbstractBasePackage {
 
 	@Override
 	public Task createTask() {
-		Task task = new TransTask(getGroupId(), getEnv(), getAction());
+		Task task = new TransTask(getGroupId(), getEnv(), getAction(), getUid());
 		return task;
+	}
+
+	/**
+	 * @return the uid
+	 */
+	public Integer getUid() {
+		return uid;
+	}
+
+	/**
+	 * @param uid
+	 *            the uid to set
+	 */
+	public void setUid(Integer uid) {
+		this.uid = uid;
 	}
 }

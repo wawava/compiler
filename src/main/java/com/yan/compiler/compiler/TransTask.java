@@ -1,51 +1,40 @@
 package com.yan.compiler.compiler;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.nio.file.Files;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.yan.compiler.App;
 import com.yan.compiler.Log;
+import com.yan.compiler.compiler.trans.AbstractTransTask;
+import com.yan.compiler.compiler.trans.BackupTask;
+import com.yan.compiler.compiler.trans.TaskResult;
 import com.yan.compiler.config.Config;
 import com.yan.compiler.config.DeployConfig;
 import com.yan.compiler.config.Env;
 import com.yan.compiler.db.ConnManagement;
 import com.yan.compiler.db.Session;
+import com.yan.compiler.entities.PushEntity;
+import com.yan.compiler.entities.PushLogEntity;
+import com.yan.compiler.entities.TestGroupEntity;
 import com.yan.compiler.receiver.Action;
 
 public class TransTask implements Task {
 
-	// 流程状态
-	public static final Integer STATUS_NO_EXECUTE = 0;
-	public static final Integer STATUS_ALREADY_EXECUTE = 1;
-	public static final Integer STATUS_ALREADY_ROLLBACK = 2;
-	public static final Integer STATUS_READY_TO_EXECUTE = 6;
-	public static final Integer STATUS_RECEIVED = 7;
-	public static final Integer STATUS_BACKUP = 8;
-	public static final Integer STATUS_TRANS = 9;
-	public static final Integer STATUS_SWITCH = 10;
-
 	private Integer groupId;
+	private Integer uid;
 	private Env env;
 	private Action action;
 
@@ -57,16 +46,18 @@ public class TransTask implements Task {
 	private Path backupTmp;
 
 	private List<String> moduleInfo;
+	private List<ModuleInfo> moduleList;
 	private Map<String, Object> push;
 	// private Map<String, List<String>> fileList;
 
 	private CountDownLatch doneSignal;
 	private CountDownLatch startSignal;
 
-	public TransTask(Integer groupId, Env env, Action action) {
-		setGroupId(groupId);
-		setEnv(env);
-		setAction(action);
+	public TransTask(Integer groupId, Env env, Action action, Integer uid) {
+		this.groupId = groupId;
+		this.uid = uid;
+		this.env = env;
+		this.action = action;
 		setName();
 	}
 
@@ -79,13 +70,11 @@ public class TransTask implements Task {
 
 		// backup if action is push
 		if (false == backup()) {
-			// TODO log
 			return;
 		}
 
 		// transport files
 		if (false == pushFile()) {
-			// TODO log
 			return;
 		}
 
@@ -100,7 +89,7 @@ public class TransTask implements Task {
 
 	private boolean mkDbConn() {
 		try {
-			session = ConnManagement.factory().connect();
+			session = ConnManagement.factory().connect(false);
 		} catch (SQLException e) {
 			Log.record(Log.ERR, getClass(), e);
 			return false;
@@ -110,8 +99,12 @@ public class TransTask implements Task {
 
 	private boolean verify() {
 		Map<String, Object> push = getPushRecord();
-		Integer status = Integer.valueOf(String.valueOf(push.get("status")));
-		if (!STATUS_READY_TO_EXECUTE.equals(status)
+		Integer status = Integer.valueOf(String.valueOf(push
+				.get(PushEntity.COLUMN_STATUS)));
+		Integer official = Integer.valueOf(String.valueOf(push
+				.get(PushEntity.COLUMN_OFFICIAL)));
+		if (!PushEntity.STATUS_READY_TO_EXECUTE.equals(status)
+				&& !PushEntity.OFFICIAL_ALREADY_OFFICIAL.equals(official)
 				&& !Config.factory().isDebug()) {
 			Log.record(Log.INFO, getClass(), String.format(
 					"Push:[%s] - Status:[%s] is not READY_TO_EXECUTE", groupId,
@@ -145,7 +138,8 @@ public class TransTask implements Task {
 		}
 		backupPath = Paths.get(backupDir);
 
-		if (null == (backupTmp = Config.factory().getBackupTplPath(groupId))) {
+		if (null == (backupTmp = Config.factory()
+				.getBackupTplPath(getGroupId()))) {
 			return false;
 		}
 
@@ -180,64 +174,30 @@ public class TransTask implements Task {
 			return false;
 		}
 
-		if (false == updateStatus(STATUS_RECEIVED)) {
+		if (false == updateStatus(PushEntity.STATUS_RECEIVED)) {
 			return false;
 		}
-		return true;
-	}
 
-	/**
-	 * 
-	 * @return
-	 */
-	private boolean backup() {
-		if (isRollback()) {
-			return true;
-		}
-
-		List<ModuleInfo> moduleList;
 		if (1 == moduleInfo.size()) {
 			moduleList = mkSingleModule();
 		} else {
 			moduleList = mkMultiModule();
 		}
 
-		LinkedList<Future<Boolean>> futureList = new LinkedList<>();
-		for (ModuleInfo module : moduleList) {
-			BackupTask task = new BackupTask(doneSignal, startSignal, module);
-			Future<Boolean> future = TaskManagement.factory().submit(task);
-			futureList.addLast(future);
-		}
-		startSignal.countDown();
-		try {
-			doneSignal.await();
-		} catch (InterruptedException e) {
-			Log.record(Log.ERR, getClass(), e);
-			return false;
-		}
-
-		boolean success = true;
-		for (Future<Boolean> future : futureList) {
-			try {
-				success = success && future.get();
-			} catch (Exception e) {
-				Log.record(Log.ERR, getClass(), e);
-				success = false;
-			}
-		}
-
-		return success;
+		return true;
 	}
 
+	/**
+	 * Make module info
+	 * 
+	 * @return
+	 */
 	private List<ModuleInfo> mkSingleModule() {
 		String module = moduleInfo.get(0);
-		// String ProjectName = Config.factory().getProjectConfig(module);
-		Path backupTmp = Config.factory().getBackupTplPath(getGroupId());
 
 		List<ModuleInfo> moduleList = new LinkedList<>();
 		DeployConfig cfg = Config.factory().getDeployConfig(module, getEnv());
-		cfg.tmp = String.format(cfg.tmp,
-				Config.factory().md5(getGroupId().toString()).toString());
+		cfg.updateTmp(Config.factory().md5(getGroupId().toString()).toString());
 		List<String> dirs = App.scanDir(sourcePath.toString(), false);
 		for (String dir : dirs) {
 			ModuleInfo mInfo = new ModuleInfo();
@@ -262,15 +222,19 @@ public class TransTask implements Task {
 		return moduleList;
 	}
 
+	/**
+	 * Make module info
+	 * 
+	 * @return
+	 */
 	private List<ModuleInfo> mkMultiModule() {
 		String hash = Config.factory().md5(getGroupId().toString()).toString();
 		List<ModuleInfo> moduleList = new LinkedList<>();
-		Path backupTmp = Config.factory().getBackupTplPath(getGroupId());
 		for (String module : moduleInfo) {
 			ModuleInfo mInfo = new ModuleInfo();
 			DeployConfig cfg = Config.factory().getDeployConfig(module,
 					getEnv());
-			cfg.tmp = String.format(cfg.tmp, hash);
+			cfg.updateTmp(hash);
 			mInfo.sourcePath = sourcePath.resolve(module);
 			mInfo.backupPath = backupPath.resolve(module);
 			mInfo.backupTmp = backupTmp.resolve(module);
@@ -282,15 +246,157 @@ public class TransTask implements Task {
 		return moduleList;
 	}
 
+	/**
+	 * @return True if action is rollback
+	 */
 	private boolean isRollback() {
 		return action != Action.PUSH;
 	}
 
+	private Long waitFor() {
+		Date before = new Date();
+		startSignal.countDown();
+		try {
+			doneSignal.await();
+		} catch (InterruptedException e) {
+			Log.record(Log.ERR, getClass(), e);
+			return -1L;
+		}
+		Date after = new Date();
+		return after.getTime() - before.getTime();
+	}
+
+	private LinkedList<Future<TaskResult>> makeSubTread(
+			Class<? extends AbstractTransTask> clazz)
+			throws NoSuchMethodException, SecurityException,
+			InstantiationException, IllegalAccessException,
+			IllegalArgumentException, InvocationTargetException {
+		Constructor<? extends AbstractTransTask> cons = clazz.getConstructor(
+				CountDownLatch.class, CountDownLatch.class, ModuleInfo.class);
+
+		LinkedList<Future<TaskResult>> futureList = new LinkedList<>();
+		for (ModuleInfo module : moduleList) {
+			AbstractTransTask task = cons.newInstance(doneSignal, startSignal,
+					module);
+			Future<TaskResult> future = TaskManagement.factory().submit(task);
+			futureList.addLast(future);
+		}
+		return futureList;
+	}
+
+	private LinkedList<TaskResult> getTaskResult(
+			List<Future<TaskResult>> futureList) {
+		LinkedList<TaskResult> resultList = new LinkedList<>();
+		for (Future<TaskResult> future : futureList) {
+			try {
+				resultList.addLast(future.get());
+			} catch (Exception e) {
+				Log.record(Log.ERR, getClass(), e);
+			}
+		}
+
+		return resultList;
+	}
+
+	/**
+	 * backup files.
+	 * 
+	 * @return
+	 */
+	private boolean backup() {
+		if (isRollback()) {
+			return true;
+		}
+		updateStatus(PushEntity.STATUS_BACKUP);
+
+		LinkedList<Future<TaskResult>> futureList;
+		try {
+			futureList = makeSubTread(BackupTask.class);
+		} catch (NoSuchMethodException | SecurityException
+				| InstantiationException | IllegalAccessException
+				| IllegalArgumentException | InvocationTargetException e1) {
+			Log.record(Log.ERR, getClass(), e1);
+			return false;
+		}
+
+		Long last = 0L;
+		if (-1L == (last = waitFor())) {
+			return false;
+		}
+
+		LinkedList<TaskResult> resultList = getTaskResult(futureList);
+
+		boolean success = true;
+		JsonObject jObject = new JsonObject();
+		Integer files = 0;
+		for (TaskResult result : resultList) {
+			try {
+				success = success && result.success;
+				String module = result.module;
+				JsonArray fileList = (JsonArray) result.obj;
+				files += fileList.size();
+				jObject.add(module, fileList);
+			} catch (Exception e) {
+				Log.record(Log.ERR, getClass(), e);
+				success = false;
+			}
+
+		}
+		Log.record(Log.INFO, getClass(),
+				String.format("Backup result: [%s]", success));
+		actionLog(Integer.valueOf((int) (last / 1000)), jObject, files,
+				PushLogEntity.PUSH_SPECIES_BACKUP, success);
+		return success;
+	}
+
 	private boolean pushFile() {
-		return true;
+		updateStatus(PushEntity.STATUS_TRANS);
+
+		LinkedList<Future<TaskResult>> futureList;
+		try {
+			futureList = makeSubTread(BackupTask.class);
+		} catch (NoSuchMethodException | SecurityException
+				| InstantiationException | IllegalAccessException
+				| IllegalArgumentException | InvocationTargetException e1) {
+			Log.record(Log.ERR, getClass(), e1);
+			return false;
+		}
+
+		Long last = 0L;
+		if (-1L == (last = waitFor())) {
+			return false;
+		}
+
+		LinkedList<TaskResult> resultList = getTaskResult(futureList);
+
+		boolean success = true;
+		JsonObject jObject = new JsonObject();
+		Integer files = 0;
+		for (TaskResult result : resultList) {
+			try {
+				success = success && result.success;
+				String module = result.module;
+				JsonArray fileList = (JsonArray) result.obj;
+				files += fileList.size();
+				jObject.add(module, fileList);
+			} catch (Exception e) {
+				Log.record(Log.ERR, getClass(), e);
+				success = false;
+			}
+
+		}
+		Log.record(Log.INFO, getClass(),
+				String.format("Push result: [%s]", success));
+
+		actionLog(Integer.valueOf((int) (last / 1000)), jObject, files,
+				PushLogEntity.PUSH_SPECIES_BACKUP, success);
+
+		return success;
 	}
 
 	private boolean switchFile() {
+		updateStatus(PushEntity.STATUS_TRANS);
+
 		return true;
 	}
 
@@ -352,26 +458,31 @@ public class TransTask implements Task {
 		}
 	}
 
+	/**
+	 * Update push status.
+	 * 
+	 * @param status
+	 * @return
+	 */
 	private boolean updateStatus(Integer status) {
 		try {
-			String sql = String.format(
-					"update %s.svn_push set status=%s where tid=%s", Config
-							.factory().get("dbName"), status, groupId);
+			String sql = PushEntity.updateStatus(groupId, status);
 			if (!session.query(sql)) {
 				throw new SQLException(String.format(
 						"Can not update push record status using tid=%s",
 						groupId));
 			}
+			session.commit();
 		} catch (Exception e) {
 			Log.record(Log.ERR, getClass(), e);
+			try {
+				session.rollback();
+			} catch (SQLException e1) {
+				Log.record(Log.ERR, getClass(), e1);
+			}
 			return false;
 		}
 		return true;
-	}
-
-	@Override
-	public String getName() {
-		return name;
 	}
 
 	/**
@@ -379,6 +490,11 @@ public class TransTask implements Task {
 	 */
 	private void setName() {
 		name = String.format("%s [%s] to %s", action, groupId, env);
+	}
+
+	@Override
+	public String getName() {
+		return name;
 	}
 
 	/**
@@ -389,26 +505,10 @@ public class TransTask implements Task {
 	}
 
 	/**
-	 * @param groupId
-	 *            the groupId to set
-	 */
-	public void setGroupId(Integer groupId) {
-		this.groupId = groupId;
-	}
-
-	/**
 	 * @return the env
 	 */
 	public Env getEnv() {
 		return env;
-	}
-
-	/**
-	 * @param env
-	 *            the env to set
-	 */
-	public void setEnv(Env env) {
-		this.env = env;
 	}
 
 	/**
@@ -419,204 +519,42 @@ public class TransTask implements Task {
 	}
 
 	/**
-	 * @param action
-	 *            the action to set
+	 * @return the uid
 	 */
-	public void setAction(Action action) {
-		this.action = action;
+	public Integer getUid() {
+		return uid;
 	}
 
-	private static List<String> diff(List<String> source, String sourcePrefix,
-			List<String> target, String targetPrefix) {
-		Set<String> targetSet = new HashSet<>();
-		Integer tPrefix = targetPrefix.length();
-		for (String str : target) {
-			str = str.substring(tPrefix);
-			targetSet.add(str);
-		}
-		List<String> result = new LinkedList<String>();
-		Integer sPrefix = sourcePrefix.length();
-		for (String str : source) {
-			str = str.substring(sPrefix);
-			if (!targetSet.contains(str)) {
-				result.add(str);
-			}
-		}
-		return result;
-	}
+	/**
+	 * 记录操作日志，不管是否成功都略过
+	 * 
+	 * @param last
+	 * @param files
+	 * @param fileCount
+	 * @param $dir
+	 * @param logType
+	 * @param $callback
+	 */
+	protected void actionLog(Integer last, JsonObject files, Integer fileCount,
+			Integer logType, Boolean success) {
+		Integer prev = Integer.valueOf(String.valueOf(push.get("process")));
+		Integer next = env.toInteger();
+		JsonObject info = PushLogEntity.mkInfo(prev, next, last, fileCount,
+				files, success);
+		String insertSql = PushLogEntity.mkInsertSql(logType, getGroupId(),
+				getUid(), Integer.valueOf(String.valueOf(push.get("version"))),
+				info);
 
-	private static List<String> exec(String[] cmd, File dir) throws IOException {
-		Log.record(Log.INFO, TransTask.class,
-				"Run shell " + Arrays.toString(cmd));
-		String[] envp = Config.factory().getEnvp();
+		String updateSql = TestGroupEntity.mkUpdateSql(logType, getUid(),
+				getGroupId());
 
-		Runtime runtime = Runtime.getRuntime();
-		Process process = runtime.exec(cmd, envp, dir);
-		BufferedReader br = new BufferedReader(new InputStreamReader(
-				process.getInputStream()));
-		LinkedList<String> output = new LinkedList<String>();
-
-		String str;
-		while (null != (str = br.readLine())) {
-			output.add(str);
-			Log.record(Log.INFO, TransTask.class, "InputStream: " + str);
-		}
-		br.close();
-		return output;
-	}
-
-	class BackupTask implements Callable<Boolean> {
-
-		private CountDownLatch doneSignal;
-		private CountDownLatch startSignal;
-		private Path sourcePath;
-		private Path backupPath;
-		private Path backupTmp;
-		private DeployConfig cfg;
-
-		public BackupTask(CountDownLatch doneSignal,
-				CountDownLatch startSignal, ModuleInfo moduleInfo) {
-			this.doneSignal = doneSignal;
-			this.startSignal = startSignal;
-			this.sourcePath = moduleInfo.sourcePath;
-			this.backupPath = moduleInfo.backupPath;
-			this.backupTmp = moduleInfo.backupTmp;
-			this.cfg = moduleInfo.cfg;
-		}
-
-		private List<String> scanFiles(Path path) {
-			List<String> files = App.scanDir(path.toAbsolutePath().toString());
-			return files;
-		}
-
-		/**
-		 * Scan the {@link #sourcePath} and {@link #backupPath}，get the file
-		 * list contained in the sourcePath but not in the backupPath.
-		 * 
-		 * @return A file list.
-		 */
-		public List<String> parseFiles() {
-			List<String> sourceFiles = scanFiles(sourcePath);
-			List<String> backupFiles = scanFiles(backupPath);
-
-			List<String> finalFiles = diff(sourceFiles, sourcePath.toString(),
-					backupFiles, backupPath.toString());
-			return finalFiles;
-		}
-
-		/**
-		 * Write files list to a temp file. <br/>
-		 * Note. The path prefix provided by {@link DeployConfig#path}
-		 * 
-		 * @param finalFiles
-		 *            A file list.
-		 * @return
-		 */
-		public String writeCfg(List<String> finalFiles) {
-			try {
-				File cfgFile = File.createTempFile(
-						Config.factory().md5(cfg.path).toString(), null);
-				PrintWriter pw = new PrintWriter(new BufferedWriter(
-						new FileWriter(cfgFile)));
-				Path targetPath = Paths.get(cfg.path);
-				for (String filePath : finalFiles) {
-					if (filePath.charAt(0) == File.separatorChar) {
-						filePath = filePath.substring(1);
-					}
-					Path target = targetPath.resolve(filePath);
-					pw.println(target.toString());
-				}
-				pw.flush();
-				pw.close();
-				return cfgFile.getAbsolutePath();
-			} catch (Exception e) {
-				Log.record(Log.ERR, getClass(), e);
-				return null;
-			}
-		}
-
-		/**
-		 * Run shell and backup files.
-		 * 
-		 * @param filePath
-		 * @return
-		 */
-		public boolean backup(String filePath) {
-			String shell = Config.factory().get("backupShell");
-			String host = cfg.host;
-			String[] cmd = { shell, filePath, host, backupTmp.toString(),
-					"2>&1" };
-			try {
-				List<String> output = exec(cmd, null);
-				if (output.isEmpty()) {
-					return false;
-				}
-				StringBuilder sbd = new StringBuilder();
-				for (String out : output) {
-					sbd.append(out.trim());
-				}
-				String out = sbd.toString();
-				if (out.equals("1")) {
-					return true;
-				} else {
-					return false;
-				}
-			} catch (IOException e) {
-				Log.record(Log.ERR, getClass(), e);
-				return false;
-			}
-		}
-
-		/**
-		 * Transport file from tmp dir to backup dir
-		 */
-		public boolean trans() {
-			List<String> fileList = App.scanDir(backupTmp.toString());
-			String remotePath = cfg.path;
-			for (String path : fileList) {
-				Path tmpPath = Paths.get(path);
-				Integer i = path.indexOf(remotePath);
-				path = path.substring(i + remotePath.length());
-				if (path.charAt(0) == File.separatorChar) {
-					path = path.substring(1);
-				}
-				Path targetPath = backupPath.resolve(path);
-				try {
-					Files.copy(tmpPath, targetPath,
-							StandardCopyOption.REPLACE_EXISTING);
-				} catch (IOException e) {
-					Log.record(Log.ERR, getClass(), e);
-				}
-			}
-			return true;
-		}
-
-		@Override
-		public Boolean call() {
-			try {
-				startSignal.await();
-				// make module path.
-				List<String> finalFiles = parseFiles();
-				if (finalFiles.size() <= 0) {
-					doneSignal.countDown();
-					return true;
-				}
-				String cfgFile = writeCfg(finalFiles);
-				if (false == backup(cfgFile)) {
-					doneSignal.countDown();
-					return false;
-				}
-
-				if (false == trans()) {
-					doneSignal.countDown();
-					return false;
-				}
-				doneSignal.countDown();
-				return true;
-			} catch (Exception e) {
-				Log.record(Log.ERR, getClass(), e);
-				return false;
-			}
+		try {
+			session.query(insertSql);
+			session.query(updateSql);
+			session.commit();
+		} catch (SQLException e) {
+			Log.record(Log.ERR, getClass(), e);
 		}
 	}
+
 }

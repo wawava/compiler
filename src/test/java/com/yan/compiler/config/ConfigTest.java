@@ -26,23 +26,23 @@ public class ConfigTest {
 
 	@Test
 	public void testGetBackupDir() {
-		String targetBetaDir = "E:\\compile\\backup\\beta\\c2\\0ad4d76fe97759aa27a0c99bff6710";
+		String targetBetaDir = "E:\\home\\webdata\\htdocs\\publish\\backup\\beta\\c2\\0ad4d76fe97759aa27a0c99bff6710";
 		String dir = config.getBackupDir(id, Env.BETA);
 		assertEquals(targetBetaDir, dir);
 
-		String targetPreviewDir = "E:\\compile\\backup\\preview\\c2\\0ad4d76fe97759aa27a0c99bff6710";
+		String targetPreviewDir = "E:\\home\\webdata\\htdocs\\publish\\backup\\preview\\c2\\0ad4d76fe97759aa27a0c99bff6710";
 		dir = config.getBackupDir(id, Env.PREVIEW);
 		assertEquals(targetPreviewDir, dir);
 		assertNotEquals(targetBetaDir, dir);
 
-		String targetOnlineDir = "E:\\compile\\backup\\online\\c2\\0ad4d76fe97759aa27a0c99bff6710";
+		String targetOnlineDir = "E:\\home\\webdata\\htdocs\\publish\\backup\\online\\c2\\0ad4d76fe97759aa27a0c99bff6710";
 		dir = config.getBackupDir(id, Env.ONLINE);
 		assertEquals(targetOnlineDir, dir);
 	}
 
 	@Test
 	public void testGetCacheDir() {
-		String cacheDir = "E:\\compile\\cache\\c2\\0ad4d76fe97759aa27a0c99bff6710";
+		String cacheDir = "E:\\home\\webdata\\htdocs\\publish\\cache\\c2\\0ad4d76fe97759aa27a0c99bff6710";
 		String dir = config.getCacheDir(id);
 		assertEquals(cacheDir, dir);
 	}

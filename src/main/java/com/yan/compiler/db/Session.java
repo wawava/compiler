@@ -15,9 +15,19 @@ public class Session {
 
 	private String id;
 
-	public Session(String id, Statement statement) {
+	private Integer parentId;
+
+	/**
+	 * @return the parentId
+	 */
+	public Integer getParentId() {
+		return parentId;
+	}
+
+	public Session(String id, Integer parentId, Statement statement) {
 		this.id = id;
 		this.statement = statement;
+		this.parentId = parentId;
 
 		Log.record(Log.DEBUG, getClass(), "Create Session with id: " + id);
 	}
@@ -99,9 +109,7 @@ public class Session {
 
 	public void close() throws SQLException {
 		showdown();
-
-		ConnManagement m = ConnManagement.factory();
-		m.free(id);
+		getConnection().free(getId());
 	}
 
 	public void showdown() throws SQLException {
@@ -111,5 +119,25 @@ public class Session {
 		}
 		result = null;
 		count = 0;
+	}
+
+	public void commit() throws SQLException {
+		if (null != statement) {
+			statement.getConnection().commit();
+			return;
+		}
+		throw new SQLException("Null point exception");
+	}
+
+	public void rollback() throws SQLException {
+		if (null != statement) {
+			statement.getConnection().rollback();
+			return;
+		}
+		throw new SQLException("Null point exception");
+	}
+
+	public MyConnection getConnection() {
+		return ConnManagement.factory().getConnection(parentId);
 	}
 }
